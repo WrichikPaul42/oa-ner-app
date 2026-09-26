@@ -1,0 +1,5 @@
+{
+  "sketch": "firmware/oa_ner_sensor/oa_ner_sensor.ino",
+  "board": "esp32:esp32:esp32",
+  "output": "build"
+}

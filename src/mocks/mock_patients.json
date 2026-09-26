@@ -1,0 +1,61 @@
+[
+  {
+    "patient_id": "pat-001",
+    "name": "Ranjit Borah",
+    "age": 62,
+    "gender": "Male",
+    "village_block": "Sonitpur Block-A",
+    "pain_map": [
+      { "body_region": "left_knee", "pain_level": 7 },
+      { "body_region": "right_knee", "pain_level": 4 }
+    ],
+    "sessions": ["sess-001", "sess-002"]
+  },
+  {
+    "patient_id": "pat-002",
+    "name": "Meera Devi Kalita",
+    "age": 55,
+    "gender": "Female",
+    "village_block": "Nagaon Block-C",
+    "pain_map": [
+      { "body_region": "right_knee", "pain_level": 9 },
+      { "body_region": "right_hip", "pain_level": 5 },
+      { "body_region": "right_ankle", "pain_level": 3 }
+    ],
+    "sessions": ["sess-003"]
+  },
+  {
+    "patient_id": "pat-003",
+    "name": "Bikash Nath",
+    "age": 48,
+    "gender": "Male",
+    "village_block": "Kamrup Block-B",
+    "pain_map": [
+      { "body_region": "left_knee", "pain_level": 2 }
+    ],
+    "sessions": ["sess-004", "sess-005", "sess-006"]
+  },
+  {
+    "patient_id": "pat-004",
+    "name": "Anjali Das",
+    "age": 70,
+    "gender": "Female",
+    "village_block": "Dibrugarh Block-D",
+    "pain_map": [
+      { "body_region": "left_knee", "pain_level": 8 },
+      { "body_region": "right_knee", "pain_level": 8 },
+      { "body_region": "left_hip", "pain_level": 6 },
+      { "body_region": "left_hand", "pain_level": 4 }
+    ],
+    "sessions": ["sess-007"]
+  },
+  {
+    "patient_id": "pat-005",
+    "name": "Pranab Saikia",
+    "age": 58,
+    "gender": "Male",
+    "village_block": "Jorhat Block-A",
+    "pain_map": [],
+    "sessions": []
+  }
+]

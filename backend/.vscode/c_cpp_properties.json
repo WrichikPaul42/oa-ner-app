@@ -1,0 +1,18 @@
+{
+  "configurations": [
+    {
+      "name": "ESP32 / Arduino",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "defines": [
+        "ESP32",
+        "ARDUINO=10800"
+      ],
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "gcc-x64"
+    }
+  ],
+  "version": 4
+}

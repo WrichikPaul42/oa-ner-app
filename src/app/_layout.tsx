@@ -1,18 +1,49 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { useEffect } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { I18nProvider } from '@/i18n';
+import { AuthProvider } from '@/context/AuthContext';
+import { SettingsProvider } from '@/context/SettingsContext';
+import { prewarmRenderBackend } from '@/services/kneevaService';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  useEffect(() => {
+    // Fire silent background pre-warm ping to Render free-tier container
+    prewarmRenderBackend();
+
+    // Hide splash screen after a brief delay to allow providers to initialize
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <I18nProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#FFFFFF' },
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="dashboard" />
+            <Stack.Screen name="patient/[id]" />
+            <Stack.Screen name="assessment/[patientId]" />
+            <Stack.Screen name="report/[sessionId]" />
+            <Stack.Screen name="kneeva/index" />
+            <Stack.Screen name="kneeva/results" />
+          </Stack>
+        </AuthProvider>
+      </SettingsProvider>
+    </I18nProvider>
   );
 }

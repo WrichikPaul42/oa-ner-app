@@ -1,0 +1,33 @@
+{
+  "session_id": "sess-004",
+  "patient_id": "pat-003",
+  "risk_tier": "Low",
+  "contributing_factors": [
+    "Flexion and extension within expected range"
+  ],
+  "max_knee_flexion_deg": 125,
+  "extension_lag_deg": 3,
+  "session_chart_data": [
+    { "t": 0.0, "flex_resistance": 120, "gyro_x": 0.5 },
+    { "t": 0.2, "flex_resistance": 145, "gyro_x": 2.0 },
+    { "t": 0.4, "flex_resistance": 190, "gyro_x": 5.5 },
+    { "t": 0.6, "flex_resistance": 260, "gyro_x": 10.0 },
+    { "t": 0.8, "flex_resistance": 340, "gyro_x": 15.0 },
+    { "t": 1.0, "flex_resistance": 420, "gyro_x": 19.0 },
+    { "t": 1.2, "flex_resistance": 490, "gyro_x": 21.5 },
+    { "t": 1.4, "flex_resistance": 540, "gyro_x": 22.8 },
+    { "t": 1.6, "flex_resistance": 570, "gyro_x": 23.0 },
+    { "t": 1.8, "flex_resistance": 580, "gyro_x": 22.5 },
+    { "t": 2.0, "flex_resistance": 575, "gyro_x": 21.0 },
+    { "t": 2.2, "flex_resistance": 550, "gyro_x": -10.0 },
+    { "t": 2.4, "flex_resistance": 490, "gyro_x": -15.0 },
+    { "t": 2.6, "flex_resistance": 400, "gyro_x": -18.0 },
+    { "t": 2.8, "flex_resistance": 300, "gyro_x": -17.0 },
+    { "t": 3.0, "flex_resistance": 200, "gyro_x": -12.0 },
+    { "t": 3.2, "flex_resistance": 140, "gyro_x": -5.0 },
+    { "t": 3.4, "flex_resistance": 120, "gyro_x": -1.0 },
+    { "t": 3.6, "flex_resistance": 118, "gyro_x": 0.0 },
+    { "t": 3.8, "flex_resistance": 115, "gyro_x": 0.0 }
+  ],
+  "advice_key": "risk_low_advice"
+}

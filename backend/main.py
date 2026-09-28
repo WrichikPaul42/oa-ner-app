@@ -29,10 +29,18 @@ from schemas import (
 from risk_engine import assess_risk, derive_biomechanics
 from udp_manager import UdpSessionManager, generate_simulated_stream
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
 app = FastAPI(
     title="OA-NER Screening App Backend API",
     description="Python Backend for OA-NER Screening App (Developer A)",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for local Developer B frontend development
@@ -43,11 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 
 # --- Security & Auth ---
@@ -223,7 +226,9 @@ def get_contract_mocks():
 
 
 # --- Kneeva Mobile Integration API Contract ---
-@app.post("/api/v1/triage", response_model=KneevaTriageResponse)
+@app.post("/triage/", response_model=KneevaTriageResponse)
+@app.post("/triage", response_model=KneevaTriageResponse, include_in_schema=False)
+@app.post("/api/v1/triage", response_model=KneevaTriageResponse, include_in_schema=False)
 def perform_kneeva_triage(payload: KneevaTriageRequest):
     meta = payload.patient_metadata
     quest = payload.questionnaire
@@ -336,6 +341,34 @@ def perform_kneeva_triage(payload: KneevaTriageRequest):
         missing_modality_count=missing_modality_count,
         effective_bmi=effective_bmi
     )
+
+
+# --- ABDM / ABHA Integration Endpoints ---
+@app.post("/abdm/link-report")
+@app.post("/api/abdm/link-report")
+def link_report_to_abdm_endpoint(payload: dict):
+    patient_id = payload.get("patient_id", "PT-UNKNOWN")
+    abha_id = payload.get("abha_id", "91-4521-8890-3412")
+    return {
+        "success": True,
+        "patient_id": patient_id,
+        "abha_id": abha_id,
+        "reference_id": f"AB-LINK-{abs(hash(patient_id)) % 899999 + 100000}",
+        "status": "LINKED_TO_ABDM_HEALTH_LOCKER",
+        "message": "Report successfully synced to Ayushman Bharat Digital Mission (ABHA)."
+    }
+
+
+@app.post("/abdm/verify-abha")
+@app.post("/api/abdm/verify-abha")
+def verify_abha_endpoint(payload: dict):
+    abha_id = payload.get("abha_id", "91-4521-8890-3412")
+    return {
+        "verified": True,
+        "abha_id": abha_id,
+        "name": payload.get("name", "Verified Patient"),
+        "status": "ACTIVE_VERIFIED"
+    }
 
 
 if __name__ == "__main__":

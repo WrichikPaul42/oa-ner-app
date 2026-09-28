@@ -13,11 +13,11 @@ interface PatientCardProps {
 
 // ─── Risk tier colors ────────────────────────────────────────────────
 
-const RISK_COLORS: Record<RiskTier | 'none', { bg: string; text: string }> = {
-  Low: { bg: '#DCFCE7', text: '#16A34A' },
-  Moderate: { bg: '#FEF3C7', text: '#D97706' },
-  High: { bg: '#FEE2E2', text: '#DC2626' },
-  none: { bg: '#F1F5F9', text: '#64748B' },
+const RISK_COLORS: Record<RiskTier | 'none', { bg: string; text: string; border: string }> = {
+  Low: { bg: '#F0FDF4', text: '#15803D', border: '#86EFAC' },
+  Moderate: { bg: '#FFFBEB', text: '#D97706', border: '#FDE68A' },
+  High: { bg: '#FEF2F2', text: '#DC2626', border: '#FCA5A5' },
+  none: { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' },
 };
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -25,7 +25,6 @@ const RISK_COLORS: Record<RiskTier | 'none', { bg: string; text: string }> = {
 export default function PatientCard({ patient, onPress }: PatientCardProps) {
   const { t } = useTranslation();
 
-  // Determine risk tier from pain map (mock heuristic for display)
   const maxPain = patient.pain_map.reduce(
     (max, entry) => Math.max(max, entry.pain_level),
     0
@@ -46,48 +45,37 @@ export default function PatientCard({ patient, onPress }: PatientCardProps) {
     <TouchableOpacity
       style={styles.cardContainer}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
     >
       <View style={styles.card}>
-        <LinearGradient
-          colors={
-            displayTier === 'High'
-              ? ['#EF4444', '#F87171']
-              : displayTier === 'Moderate'
-              ? ['#F59E0B', '#FBBF24']
-              : displayTier === 'Low'
-              ? ['#10B981', '#34D399']
-              : ['#0D9488', '#2DD4BF']
-          }
-          style={styles.cardBorder}
-        />
-        
+        <View style={[styles.cardBorder, { backgroundColor: tierColors.text }]} />
+
         {/* Avatar */}
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {patient.name.charAt(0).toUpperCase()}
-        </Text>
-      </View>
-
-      {/* Info */}
-      <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>
-          {patient.name}
-        </Text>
-        <Text style={styles.details}>
-          {patient.age} yrs • {patient.village_block}
-        </Text>
-        <Text style={styles.sessions}>{sessionInfo}</Text>
-      </View>
-
-      {/* Risk chip */}
-      {displayTier !== 'none' && (
-        <View style={[styles.riskChip, { backgroundColor: tierColors.bg }]}>
-          <Text style={[styles.riskText, { color: tierColors.text }]}>
-            {t(`report_risk_${displayTier.toLowerCase() as 'low' | 'moderate' | 'high'}`)}
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {patient.name.charAt(0).toUpperCase()}
           </Text>
         </View>
-      )}
+
+        {/* Info */}
+        <View style={styles.info}>
+          <Text style={styles.name} numberOfLines={1}>
+            {patient.name}
+          </Text>
+          <Text style={styles.details}>
+            {patient.age} yrs • {patient.village_block}
+          </Text>
+          <Text style={styles.sessions}>{sessionInfo}</Text>
+        </View>
+
+        {/* Risk chip */}
+        {displayTier !== 'none' && (
+          <View style={[styles.riskChip, { backgroundColor: tierColors.bg, borderColor: tierColors.border }]}>
+            <Text style={[styles.riskText, { color: tierColors.text }]}>
+              {t(`report_risk_${displayTier.toLowerCase() as 'low' | 'moderate' | 'high'}`)}
+            </Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -97,69 +85,75 @@ export default function PatientCard({ patient, onPress }: PatientCardProps) {
 
 const styles = StyleSheet.create({
   cardContainer: {
-    marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    marginBottom: 10,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    paddingLeft: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 14,
+    paddingLeft: 18,
+    position: 'relative',
     overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
   cardBorder: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    width: 6,
+    width: 4,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0D948815',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#003366',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0D9488',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
   },
   info: {
     flex: 1,
     gap: 2,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   details: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '600',
   },
   sessions: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
   },
   riskChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
+    borderWidth: 1,
     marginLeft: 8,
   },
   riskText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

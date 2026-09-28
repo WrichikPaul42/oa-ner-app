@@ -7,8 +7,42 @@ aligned with SNOMED CT and LOINC clinical ontologies for ABDM interoperability.
 """
 
 import uuid
+import re
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
+
+
+def sanitize_clinical_narrative(text: str) -> str:
+    """
+    FHIR Payload Sanitizer:
+    Ensures zero leakage of proprietary model weights, Platt scaling constants,
+    internal tree coefficients, or raw code-level variable identifiers into ABDM FHIR outputs.
+    Only clean, human-readable SHAP narratives are permitted.
+    """
+    if not text:
+        return ""
+
+    # 1. Strip internal model weight or Platt scaling constant references
+    text = re.sub(r'platt_[a-zA-Z0-9_]+', '', text)
+    text = re.sub(r'catboost_[a-zA-Z0-9_]+', '', text)
+    text = re.sub(r'weight_[a-zA-Z0-9_]+', '', text)
+    text = re.sub(r'coefficient_[a-zA-Z0-9_]+', '', text)
+
+    # 2. Convert raw snake_case feature variable names to human-readable clinical terms
+    replacements = {
+        "flat_gait_stride_time_cv": "Flat Walk Stride Variability",
+        "climbing_cadence": "Stair Climbing Cadence",
+        "climbing_stride_time_cv": "Climbing Stride Variability",
+        "rom_flexion_deficit_deg": "Flexion Range Deficit",
+        "carried_load_kg": "Daily Carried Load",
+        "effective_bmi": "Terrain-Adjusted Effective BMI",
+        "strength_ext_bw_ratio": "Extension Force Ratio",
+        "crepitus_event_count": "Acoustic Crepitus Events",
+    }
+    for raw_var, clean_term in replacements.items():
+        text = text.replace(raw_var, clean_term)
+
+    return text.strip()
 
 
 def create_fhir_diagnostic_report(
@@ -27,6 +61,11 @@ def create_fhir_diagnostic_report(
     Constructs an HL7 FHIR R4 Bundle containing a DiagnosticReport and
     individual Observation resources for national health grid (ABDM) integration.
     """
+    # Sanitize narrative text fields to prevent internal model/coefficient leakage
+    clean_explanation = sanitize_clinical_narrative(clinical_explanation)
+    clean_drivers = [sanitize_clinical_narrative(d) for d in primary_drivers]
+    clean_recommendations = [sanitize_clinical_narrative(r) for r in recommendations]
+
     timestamp = datetime.now(timezone.utc).isoformat()
     report_id = f"diag-rep-{uuid.uuid4().hex[:12]}"
     bundle_id = f"bundle-kneeva-{uuid.uuid4().hex[:12]}"
@@ -230,7 +269,7 @@ def create_fhir_diagnostic_report(
             "display": "Frontline Community Health Worker (ASHA / ANM)"
         }],
         "result": [{"reference": f"Observation/{obs['id']}"} for obs in observations],
-        "conclusion": clinical_explanation,
+        "conclusion": clean_explanation,
         "conclusionCode": [{
             "coding": [{
                 "system": "http://snomed.info/sct",
@@ -241,11 +280,11 @@ def create_fhir_diagnostic_report(
         "extension": [
             {
                 "url": "https://kneeva.health.gov.in/fhir/StructureDefinition/primary-drivers",
-                "valueString": " | ".join(primary_drivers)
+                "valueString": " | ".join(clean_drivers)
             },
             {
                 "url": "https://kneeva.health.gov.in/fhir/StructureDefinition/actionable-recommendations",
-                "valueString": " | ".join(recommendations)
+                "valueString": " | ".join(clean_recommendations)
             }
         ]
     }

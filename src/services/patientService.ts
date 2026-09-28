@@ -4,26 +4,53 @@
  * Connects to the real Python FastAPI backend.
  */
 
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import type { PatientRecord, PainMapEntry } from '@/types/contracts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import mockPatients from '@/mocks/mock_patients.json';
 
 const staticMockPatients = mockPatients as PatientRecord[];
+const DEFAULT_CLOUD_URL = 'https://kneeva-api.onrender.com';
+
+function getHostIp(): string | null {
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return ip;
+    }
+  }
+  return null;
+}
 
 // Helper to get the base URL
 async function getBaseUrl() {
-  let backendIp = '10.104.28.241';
   try {
     const ip = await AsyncStorage.getItem('@backend_ip');
-    if (ip && ip !== '192.168.43.100') backendIp = ip;
+    if (ip && ip.trim().length > 0) {
+      const val = ip.trim();
+      if (val !== '10.104.28.241' && val !== '192.168.43.100') {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          return `${val.replace(/\/+$/, '')}/api`;
+        }
+        return `http://${val}:8000/api`;
+      }
+    }
   } catch {
-    // AsyncStorage unavailable, use default IP
+    // AsyncStorage unavailable, use fallback
   }
-  return `http://${backendIp}:8000/api`;
+
+  const lanIp = getHostIp();
+  if (lanIp) {
+    return `http://${lanIp}:8000/api`;
+  }
+
+  return Platform.OS === 'web' ? 'http://localhost:8000/api' : `${DEFAULT_CLOUD_URL}/api`;
 }
 
 // Timeout helper so unreachable IP doesn't hang for 2 minutes
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500) {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -42,10 +69,21 @@ export async function getPatients(): Promise<PatientRecord[]> {
   try {
     const response = await fetchWithTimeout(`${baseUrl}/patients`);
     if (!response.ok) throw new Error('Failed to fetch patients');
-    const backendPatients = await response.json() as PatientRecord[];
-    // Combine backend patients and mock patients
+    const backendPatients = (await response.json()) as PatientRecord[];
     return [...backendPatients, ...staticMockPatients];
   } catch (error) {
+    // Try cloud fallback if local LAN attempt failed
+    if (!baseUrl.includes('kneeva-api.onrender.com')) {
+      try {
+        const cloudResp = await fetchWithTimeout(`${DEFAULT_CLOUD_URL}/api/patients`);
+        if (cloudResp.ok) {
+          const backendPatients = (await cloudResp.json()) as PatientRecord[];
+          return [...backendPatients, ...staticMockPatients];
+        }
+      } catch {
+        // Cloud also down
+      }
+    }
     console.log('getPatients error (backend may be down), using mocks only:', error);
     return staticMockPatients;
   }

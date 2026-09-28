@@ -245,8 +245,11 @@ export class IMUWalkEngine {
    */
   public calculateMetrics(durationSeconds: number): WalkTestResult {
     const totalPeaks = this.peaks.length;
-    const durationMinutes = durationSeconds / 60;
-    const cadence = durationMinutes > 0 ? totalPeaks / durationMinutes : 0;
+    const elapsedTimeSec = Math.max(1, this.startTime > 0 ? (Date.now() - this.startTime) / 1000 : durationSeconds);
+    const durationMinutes = elapsedTimeSec / 60;
+    const rawCadence = durationMinutes > 0 ? (totalPeaks / durationMinutes) : 0;
+    // Cap realistic human cadence between 0 and 180 SPM
+    const cadence = Math.min(180, Math.round(rawCadence * 10) / 10);
 
     // Calculate step times (difference between consecutive heel strike peaks in seconds)
     const stepTimes: number[] = [];

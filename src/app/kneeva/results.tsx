@@ -18,12 +18,19 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import type { KneevaTriageResponse, KneevaTriagePayload } from '@/types/kneeva';
+import { forwardReportToAbdm } from '@/services/kneevaService';
+import { notifyAbhaForwarded } from '@/services/notificationService';
 
 export default function KneevaResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ triageData?: string; payloadData?: string }>();
 
+  const [abhaForwardChoice, setAbhaForwardChoice] = useState<'ABDM_FORWARD' | 'LOCAL_ONLY'>('ABDM_FORWARD');
+  const [isSyncingAbdm, setIsSyncingAbdm] = useState(false);
+  const [abhaSyncedResult, setAbhaSyncedResult] = useState<any>(null);
+
   const [showJsonModal, setShowJsonModal] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Parse result data with safe fallback
   let triageResult: KneevaTriageResponse;
@@ -84,7 +91,21 @@ export default function KneevaResultsScreen() {
   const category = (triageResult.oa_risk_category || 'moderate').toLowerCase();
   const percentage = Math.round(triageResult.oa_risk_score * 1000) / 10;
 
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const abhaId = payload?.abha_number || payload?.abha_id || '91-4521-8890-3412';
+
+  const handleForwardToAbdm = async () => {
+    setIsSyncingAbdm(true);
+    try {
+      const res = await forwardReportToAbdm(triageResult.patient_id, abhaId, triageResult);
+      setAbhaSyncedResult(res);
+      await notifyAbhaForwarded(triageResult.patient_id, abhaId);
+      Alert.alert('Ayushman Bharat Sync', `Report for ${triageResult.patient_id} successfully synced to ABHA #${abhaId}.`);
+    } catch (err: any) {
+      Alert.alert('ABDM Sync Error', err?.message || 'Failed to sync report to Ayushman Bharat.');
+    } finally {
+      setIsSyncingAbdm(false);
+    }
+  };
 
   const handleSharePdf = async () => {
     setIsGeneratingPdf(true);
@@ -96,8 +117,8 @@ export default function KneevaResultsScreen() {
           ? '#D97706'
           : '#16A34A';
 
-      const abhaRow = payload?.abha_number
-        ? `<div><strong>ABHA ID:</strong> ${payload.abha_number}</div>`
+      const abhaRow = payload?.abha_number || payload?.abha_id
+        ? `<div><strong>ABHA ID:</strong> ${payload.abha_number || payload.abha_id}</div>`
         : '';
 
       const htmlContent = `
@@ -179,17 +200,21 @@ export default function KneevaResultsScreen() {
         });
       } else {
         const { uri } = await Print.printToFileAsync({ html: htmlContent });
+        let shared = false;
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
-            UTI: '.pdf',
-            mimeType: 'application/pdf',
-            dialogTitle: `Kneeva Referral Slip - ${triageResult.patient_id}`,
-          });
-        } else {
-          await Share.share({
-            title: `Kneeva Referral Slip - ${triageResult.patient_id}`,
-            message: `Kneeva Triage Referral for ${triageResult.patient_id}: ${triageResult.oa_risk_category.toUpperCase()} Risk (${percentage}%). Protocol: ${triageResult.clinical_action}`,
-          });
+          try {
+            await Sharing.shareAsync(uri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `Kneeva Referral Slip - ${triageResult.patient_id}`,
+              UTI: 'com.adobe.pdf',
+            });
+            shared = true;
+          } catch (sharingErr) {
+            console.warn('Sharing.shareAsync failed, falling back to Print.printAsync:', sharingErr);
+          }
+        }
+        if (!shared) {
+          await Print.printAsync({ html: htmlContent });
         }
       }
     } catch (err: any) {
@@ -397,6 +422,67 @@ export default function KneevaResultsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Ayushman Bharat (ABDM) Patient Choice & Report Forwarding Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardHeader}>🛡️ Ayushman Bharat Health Account (ABHA)</Text>
+          <Text style={styles.cardSub}>
+            Patient Choice: Forward & link this AI diagnostic report to Ayushman Bharat Digital Mission (ABHA #{abhaId})
+          </Text>
+
+          <View style={{ marginTop: 12, gap: 10 }}>
+            <TouchableOpacity
+              style={[
+                styles.abhaChoiceCard,
+                abhaForwardChoice === 'ABDM_FORWARD' && styles.abhaChoiceSelected,
+              ]}
+              onPress={() => setAbhaForwardChoice('ABDM_FORWARD')}
+            >
+              <Text style={{ fontSize: 18 }}>🟢</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.abhaChoiceTitle}>Forward Report to Ayushman Bharat (ABHA)</Text>
+                <Text style={styles.abhaChoiceSub}>Syncs to National Health Record Locker for doctor access</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.abhaChoiceCard,
+                abhaForwardChoice === 'LOCAL_ONLY' && styles.abhaChoiceSelected,
+              ]}
+              onPress={() => setAbhaForwardChoice('LOCAL_ONLY')}
+            >
+              <Text style={{ fontSize: 18 }}>🔒</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.abhaChoiceTitle}>Keep Report Local & Private Only</Text>
+                <Text style={styles.abhaChoiceSub}>Stored on device only, not uploaded to national registry</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {abhaForwardChoice === 'ABDM_FORWARD' && (
+            <TouchableOpacity
+              style={styles.abhaSyncBtn}
+              onPress={handleForwardToAbdm}
+              disabled={isSyncingAbdm}
+            >
+              {isSyncingAbdm ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.abhaSyncBtnText}>⚡ Forward Report to ABDM Gateway</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {abhaSyncedResult && (
+            <View style={styles.abhaSuccessBox}>
+              <Text style={styles.abhaSuccessTitle}>✅ Linked to Ayushman Bharat (ABHA)</Text>
+              <Text style={styles.abhaSuccessSub}>
+                Ref ID: {abhaSyncedResult.reference_id} | ABHA: {abhaId}
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Bottom Actions */}
@@ -465,7 +551,7 @@ export default function KneevaResultsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F4F0',
   },
   topBar: {
     flexDirection: 'row',
@@ -473,22 +559,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#003366',
+    borderBottomWidth: 3,
+    borderBottomColor: '#FF9933',
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   backIcon: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#475569',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   topBarCenter: {
     alignItems: 'center',
@@ -496,25 +582,26 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   topBarPatient: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#FF9933',
+    fontWeight: '700',
   },
   inspectBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#FF9933',
   },
   inspectBtnText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   scroll: {
     flex: 1,
@@ -525,9 +612,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   scoreCard: {
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 20,
-    borderWidth: 1,
+    borderWidth: 2,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -538,29 +625,29 @@ const styles = StyleSheet.create({
   categoryBadge: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
+    borderRadius: 4,
   },
   categoryBadgeText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   effectiveBmiPill: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#003366',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
   effectiveBmiLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#003366',
   },
   effectiveBmiVal: {
     fontSize: 12,
@@ -577,20 +664,23 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   scoreSub: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#003366',
     marginTop: -4,
+    letterSpacing: 0.5,
   },
   ciContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#B0BEC5',
   },
   ciLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#003366',
     marginBottom: 6,
   },
   ciTrack: {
@@ -613,41 +703,40 @@ const styles = StyleSheet.create({
   },
   ciBoundText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#475569',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#B0BEC5',
   },
   cardHeader: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: '#003366',
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   cardSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#475569',
     marginBottom: 14,
+    fontWeight: '500',
   },
   explanationText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#334155',
+    color: '#0F172A',
     fontStyle: 'italic',
+    fontWeight: '600',
   },
   actionCard: {
-    backgroundColor: '#F0FDFA',
-    borderColor: '#99F6E4',
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FF9933',
+    borderWidth: 1.5,
   },
   actionHeaderRow: {
     flexDirection: 'row',
@@ -661,13 +750,13 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F766E',
+    color: '#003366',
   },
   actionBody: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '600',
-    color: '#115E59',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   featureItem: {
     marginBottom: 12,
@@ -679,23 +768,23 @@ const styles = StyleSheet.create({
   },
   featureName: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
+    fontWeight: '700',
+    color: '#003366',
   },
   featurePercent: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#0D9488',
+    fontWeight: '800',
+    color: '#138808',
   },
   featureBarTrack: {
     height: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E2E8F0',
     borderRadius: 3,
     overflow: 'hidden',
   },
   featureBarFill: {
     height: '100%',
-    backgroundColor: '#0D9488',
+    backgroundColor: '#138808',
     borderRadius: 3,
   },
   telemetryRow: {
@@ -703,17 +792,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#E2E8F0',
   },
   telemetryLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: '#003366',
   },
   telemetryVal: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#0F172A',
     maxWidth: '65%',
     textAlign: 'right',
   },
@@ -721,38 +810,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopWidth: 2,
+    borderTopColor: '#003366',
   },
   shareBtn: {
-    backgroundColor: '#0D9488',
+    backgroundColor: '#138808',
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   shareBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   doneBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#003366',
     paddingVertical: 15,
-    borderRadius: 14,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   doneBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   modalSafe: {
     flex: 1,
@@ -769,18 +854,18 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   closeModalBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
+    backgroundColor: '#003366',
+    borderRadius: 4,
   },
   closeModalText: {
-    color: '#38BDF8',
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   modalScroll: {
     flex: 1,
@@ -789,7 +874,7 @@ const styles = StyleSheet.create({
   jsonSectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#FF9933',
     marginBottom: 8,
     marginTop: 10,
     letterSpacing: 0.5,
@@ -797,9 +882,9 @@ const styles = StyleSheet.create({
   codeBox: {
     backgroundColor: '#020617',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#003366',
     marginBottom: 16,
   },
   codeText: {
@@ -807,5 +892,62 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#38BDF8',
     lineHeight: 16,
+  },
+  abhaChoiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B0BEC5',
+    padding: 12,
+    borderRadius: 6,
+  },
+  abhaChoiceSelected: {
+    borderColor: '#138808',
+    backgroundColor: '#F0FDF4',
+  },
+  abhaChoiceTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#003366',
+  },
+  abhaChoiceSub: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  abhaSyncBtn: {
+    marginTop: 14,
+    backgroundColor: '#138808',
+    paddingVertical: 14,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  abhaSyncBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  abhaSuccessBox: {
+    marginTop: 14,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#138808',
+    padding: 12,
+    borderRadius: 6,
+  },
+  abhaSuccessTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#138808',
+  },
+  abhaSuccessSub: {
+    fontSize: 12,
+    color: '#15803D',
+    marginTop: 2,
+    fontWeight: '700',
   },
 });

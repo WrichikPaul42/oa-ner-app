@@ -64,9 +64,12 @@ export interface KneevaSensorFeatures {
 export interface KneevaTriagePayload {
   patient_id: string;
   abha_number?: string | null;
+  abha_id?: string | null;
   patient_metadata: KneevaPatientMetadata;
   questionnaire: KneevaQuestionnaire;
   sensor_features: KneevaSensorFeatures;
+  tier_a?: any;
+  tier_b?: any;
 }
 
 export interface KneevaTriageResponse {

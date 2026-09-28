@@ -1,27 +1,48 @@
-# Kneeva (OA-NER) — Non-Invasive Knee Osteoarthritis Early Screening Platform
+# Kneeva (OA-NER) — Non-Invasive Multimodal Knee Osteoarthritis Screening Platform
 
 [![Expo](https://img.shields.io/badge/Frontend-Expo%20v57%20%7C%20React%20Native-000020?style=for-the-badge&logo=expo)](https://expo.dev/)
+[![Design System](https://img.shields.io/badge/UI%2FUX-NIC%20Gov--Tech%20%7C%20Modern%20Indian-003366?style=for-the-badge&logo=gov.in)](src/styles/theme.ts)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python%203.13-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![ESP32](https://img.shields.io/badge/Firmware-ESP32%20Dev%20Module%20%7C%20C++-E7352C?style=for-the-badge&logo=espressif)](https://www.espressif.com/)
+[![Production API](https://img.shields.io/badge/Production%20Cloud-https%3A%2F%2Fkneeva--api.onrender.com-46E3B7?style=for-the-badge&logo=render)](https://kneeva-api.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-> **Kneeva** is an edge-first, multimodal clinical screening and risk stratification platform for **Knee Osteoarthritis (KOA)**. Built for frontline healthcare workers (ASHA/ANM workers, community health centers, and physiotherapists), Kneeva enables early non-invasive detection before irreversible cartilage loss occurs on X-rays.
+> **Kneeva** is an edge-first, multimodal clinical screening, risk stratification, and MLOps telemetry platform for **Knee Osteoarthritis (KOA)**. Engineered specifically for frontline Accredited Social Health Activists (**ASHA workers**), Auxiliary Nurse Midwives (**ANMs**), and Primary Health Centers (**PHCs**), Kneeva enables early non-invasive detection of osteoarthritis before irreversible cartilage loss occurs on X-rays.
 
 ---
 
 ## 📌 Executive Summary
 
-### The Clinical Problem
-- **Late Detection Dilemma:** Standard diagnosis relies on radiological joint space narrowing (Kellgren-Lawrence grading) on X-rays or MRIs. By the time symptoms appear on radiographs, articular cartilage degradation is irreversible.
-- **Rural Diagnostic Gap:** Rural primary health centers (PHCs) lack trained radiologists and radiographic equipment.
-- **Subjective Screening:** Traditional questionnaires (WOMAC, KOOS) rely on patient recall and lack objective biomechanical biomarkers.
+### The Clinical & Operational Challenge
+- **Late Diagnostic Gap:** Standard Knee OA diagnosis relies on radiological joint space narrowing (Kellgren-Lawrence grading) on X-rays or MRIs. By the time structural joint degradation appears on radiographs, articular cartilage damage is irreversible.
+- **Rural Primary Healthcare Isolation:** Primary Health Centers (PHCs) in high-altitude, rural, and remote regions lack radiologists and radiographic equipment.
+- **ABDM & Health Registry Silos:** Traditional point-of-care tools fail to link patient triage directly to the **Ayushman Bharat Digital Mission (ABDM)** or **Ayushman Bharat Health Account (ABHA)** registry.
 
-### Kneeva's Solution
-Kneeva combines **on-device edge signal processing**, **multimodal biomechanical sensors**, and a **clinical triage risk engine**:
-1. **Edge IMU Processing:** Uses mobile phone sensors (`expo-sensors`) or wireless wearable sensor nodes (ESP32 + MPU-6050) to run real-time peak-detection gait analysis (cadence, stride time variability, asymmetry).
-2. **Multimodal Sensor Fusion:** Ingests dynamic gait biomechanics, digital dynamometer strength ratios ($H:Q$, Quad-to-Bodyweight), goniometer range-of-motion (ROM flexion/extension deficit), and vibroacoustic crepitus sounds.
-3. **Clinical Triage Engine:** Stratifies patients into 4 risk tiers (**Low, Moderate, High, Severe**) with actionable, explainable clinical recommendations and local referrals.
-4. **ASHA-Friendly UI:** Bilingual (English & Hindi), offline-first storage, PIN authentication, and visual pain mapping.
+### Kneeva's Integrated Solution
+Kneeva combines **on-device edge signal processing**, **multimodal biomechanical sensor fusion**, **CatBoost machine learning**, **TreeSHAP explainability**, **Modern Indian Government (NIC Gov-Tech) UX**, and **ABDM / FHIR R4 interoperability**:
+
+1. **Modern Indian Government (NIC Gov-Tech) Design System:** Tailored UI styled after official NIC apps (UMANG, DigiLocker, CoWIN) featuring **NIC Navy Blue (`#003366`)**, **Tricolor Saffron (`#FF9933`)**, **India Green (`#138808`)**, paper-like government document backgrounds (`#F4F4F0`), high-contrast outdoor-legible typography, and official health referral certificate displays.
+2. **On-Device Edge IMU Signal Processor:** Operates directly inside the mobile client ([src/services/imuProcessor.ts](src/services/imuProcessor.ts)), running real-time 50Hz gait sampling, 60-second slow walk & fast walk telemetry, peak detection, cadence computation, stride time variability ($CV$), and step asymmetry.
+3. **Multimodal Biomechanical Sensor Ingestion:** Fuses gait dynamics with isometric dynamometer strength ratios ($H:Q$, Quad-to-Bodyweight), wireless digital goniometer range-of-motion (ROM flexion/extension deficit), acoustic vibroarthrographic crepitus joint sound sensors, and sEMG bio-patch co-contraction indices.
+4. **Indian Occupational Context & Effective Terrain BMI:** Calculates terrain-adjusted effective BMI factoring in daily high-altitude carried loads (water vessels, headloads, firewood) and steep mountain incline hours.
+5. **ABDM / ABHA Digital Health Integration:** Directly links patient triage sessions and forwards referral reports to the **Ayushman Bharat Health Account (ABHA)** health locker via ABDM endpoints (`/abdm/verify-abha`, `/abdm/link-report`).
+6. **Anonymized Data Flywheel (MLOps Telemetry):** Asynchronously writes PII-stripped feature payloads (`tier_a`, `tier_b`, `tier_c`, `risk_score`) to the `MLTelemetryRecord` table via FastAPI `BackgroundTasks` for continuous model retraining without storing patient names or ABHA IDs.
+7. **Multi-Layer Security Architecture:** Transmits data via TLS 1.3, enforces private VPC subnet restrictions (`10.0.0.0/8`, `172.16.0.0/12`) and 64-character hex shared secret authentication (`X-Internal-Auth`) on internal inference microservices (`app.py`), and scrubs internal model weights before outputting ABDM-compliant FHIR R4 DiagnosticReports.
+8. **1-Tap Certified PDF Referral Slip:** Generates official diagnostic referral slips via `expo-print` and native device share sheets (`expo-sharing`).
+
+---
+
+## 🎨 Modern Indian Government (Gov-Tech) UI/UX
+
+Kneeva features a specialized design system engineered for high-visibility outdoor usage by ASHA workers in remote terrain:
+
+| Token | Color Code | Application |
+| :--- | :--- | :--- |
+| **NIC Navy Blue** | `#003366` | Top navigation header bars, official emblem banners, primary headers, modal titles |
+| **India Green** | `#138808` | Primary action buttons ("Start Triage", "Run Test"), ABDM sync badges, low risk badges |
+| **Saffron Accent** | `#FF9933` | Active step indicators, warning highlights, sub-test toggles, moderate risk badges |
+| **Paper Surface** | `#F4F4F0` | Main application background (classic paper government document feel) |
+| **Crisp White Card** | `#FFFFFF` | Solid elevated cards with `#B0BEC5` 1px borders & 4px-8px sharp corner rounding |
+| **High-Contrast Text** | `#003366` / `#0F172A` | Bold, uppercase input labels and high-legibility outdoor typography |
 
 ---
 
@@ -29,132 +50,149 @@ Kneeva combines **on-device edge signal processing**, **multimodal biomechanical
 
 ```mermaid
 flowchart TD
-    subgraph Stage1["Stage 1: Multimodal Data Capture"]
-        A1[Smartphone IMU\n50Hz Accel + Gyro]
-        A2[ESP32 Wearable Node\nMPU6050 + Flex Sensor]
-        A3[Digital Dynamometer\nExtension / Flexion Force]
-        A4[Acoustic Stethoscope\nJoint Crepitus Audio]
-        A5[Worker Survey\nDemographics + WOMAC]
+    subgraph Client["Stage 1: Frontline Mobile Client (Expo / React Native)"]
+        A1[Patient Intake & ABHA ID Link]
+        A2[Edge IMU Processor\n50Hz Accel + Gyro 60s Telemetry Engine]
+        A3[Multimodal Clinical Exam\nGoniometer, Dynamometer, Crepitus, sEMG]
+        A4[Modern Indian Gov-Tech UI System\nNIC Navy Blue & Tricolor Theme]
     end
 
-    subgraph Stage2["Stage 2: Mobile Edge Processor (Android / Expo)"]
-        B1[Real-time Sampling Engine\nexpo-sensors]
-        B2[Heel-Strike Peak Detection\nRefractory Window 320ms]
-        B3[Feature Extraction Math\nCadence, Stride CV, Asymmetry]
-        B4[Offline Storage SQLite / AsyncStorage]
-        B5[Compact JSON Payload Builder]
+    subgraph Prewarm["Stage 2: Render Free-Tier Pre-Warm"]
+        B1[Root Component useEffect\nSilent Non-Blocking GET /healthz]
     end
 
-    subgraph Stage3["Stage 3: Cloud / Local Backend (FastAPI)"]
-        C1[POST /api/kneeva/triage\nRest API Contract]
-        C2[UDP Stream Receiver\nPort 5005 Star Topology]
-        C3[Multi-Tier Clinical Risk Engine\nRisk Scoring 0-100]
-        C4[Explainable Biomechanics\nRadar Breakdown & Flags]
-        C5[SQLite Persistent DB\nPatients & Assessments]
+    subgraph Gateway["Stage 3: FastAPI Production Gateway (server.py)"]
+        C1[POST /api/v1/triage & POST /triage/]
+        C2[Indian Occupational Context Engine\nEffective Terrain & Load BMI]
+        C3[CatBoost Multimodal Fusion Model]
+        C4[TreeSHAP Explainability Engine]
+        C5[BackgroundTasks\nPII-Stripped Telemetry Writer]
+        C6[FHIR R4 Mapper & Sanitizer\nHL7 / ABDM Interoperability]
+        C7[POST /abdm/link-report\nAyushman Bharat Health Locker Gateway]
     end
 
-    subgraph Stage4["Stage 4: Clinical Output & Intervention"]
-        D1[Risk Tier Stratification\nLow / Moderate / High / Severe]
-        D2[Actionable Guidance\nPhysiotherapy / Ortho Referral]
-        D3[Bilingual UI & PDF Report\nEnglish + Hindi for ASHA]
+    subgraph BlackBox["Stage 4: Internal Black-Box Inference Engine (app.py)"]
+        D1[POST /infer]
+        D2[VPC Subnet Check\nAllowed 10.0.0.0/8, 172.16.0.0/12]
+        D3[X-Internal-Auth Verification\n64-Char Hex Shared Secret]
     end
 
-    A1 & A2 & A3 & A4 & A5 --> Stage2
-    B1 --> B2 --> B3 --> B5
-    B5 -->|HTTPS JSON Payload| C1
-    A2 -.->|Raw UDP Packets| C2
-    C1 --> C3 --> C4 --> C5
-    C4 --> Stage4
+    subgraph Database["Stage 5: Secure MLOps Telemetry Database"]
+        E1[MLTelemetryRecord Table\nAnonymized Biomechanical Features]
+    end
+
+    subgraph Output["Stage 6: Frontline Clinical Action"]
+        F1[Official Health Referral Certificate\nLow / Moderate / High / Severe Risk]
+        F2[1-Tap Certified PDF Referral Slip & ABDM Sync]
+    end
+
+    Client -->|Launch Ping| Prewarm
+    Prewarm -.->|GET /healthz| Gateway
+    Client -->|HTTPS TLS 1.3 Payload| C1
+    C1 --> C2 --> C3 --> C4
+    C3 -.->|Private Subnet + Secret| BlackBox
+    C4 --> C5 -->|Background Task| E1
+    C4 --> C6 --> Output
+    Client -->|ABHA Link Request| C7
 ```
 
 ---
 
-## ⚡ Edge Processing vs. Cloud: Why No Heavy Python Libraries?
+## 🔒 Security & Privacy Architecture
 
-In earlier research phases, offline Python scripts relied on heavy audio/gait libraries (`gaitpy`, `librosa`) that suffered from severe dependency deadlocks (e.g. `gaitpy` requiring legacy `pandas==0.20.3`).
-
-**Kneeva eliminates this entirely by adopting Edge Computing:**
-- **On-Device Signal Processing:** Feature extraction runs directly inside the client application ([src/services/imuProcessor.ts](src/services/imuProcessor.ts)) in real-time.
-- **Zero Heavy Cloud DSP:** The cloud server does not need to parse gigabytes of raw time-series CSVs. It only receives clean, validated numerical features.
-- **Bandwidth Efficient:** Instead of streaming 50 MB of raw audio and IMU buffers, the mobile app sends a `< 2 KB` JSON payload.
-- **Offline Resilient:** Community health workers can perform screenings in remote villages without internet connectivity, storing results locally and syncing when back online.
-
-### Edge Mathematical Formulas
-
-$$\text{Cadence (steps/min)} = \frac{\text{Total Peaks Detected}}{\text{Duration in Minutes}}$$
-
-$$\text{Stride Time CV (Variability)} = \frac{\sigma(\Delta t_{\text{steps}})}{\mu(\Delta t_{\text{steps}})}$$
-
-$$\text{Step Time Asymmetry} = \frac{|\mu_{\text{even steps}} - \mu_{\text{odd steps}}|}{\mu_{\text{all steps}}}$$
-
-$$\text{Gait Speed (m/s)} \approx \frac{\text{Cadence} \times \text{Step Length (0.58m)}}{60}$$
+| Security Boundary | Mechanism | Description |
+| :--- | :--- | :--- |
+| **App to Gateway** | TLS 1.3 | All mobile client communication connects to `https://kneeva-api.onrender.com` over HTTPS, securing traffic over public rural Wi-Fi. |
+| **Gateway to ABDM** | ABDM Gateway & AES-256-GCM | Encrypts ABHA patient diagnostic payloads before transmitting to the national health registry locker (`/abdm/link-report`). |
+| **FHIR Sanitization** | `sanitize_clinical_narrative` | Scrubs internal model weights, Platt scaling constants, and raw debug symbols from FHIR bundle notes. |
+| **Gateway to Inference** | Black-Box VPC Isolation | `app.py` enforces VPC IP subnet checking (`10.0.0.0/8`, `172.16.0.0/12`) and `X-Internal-Auth` 64-character hex shared secret headers. |
+| **Data Flywheel** | Anonymized `MLTelemetryRecord` | `BackgroundTasks` strips `patient_id` and `abha_number` before persisting raw features to `ml_telemetry` for CatBoost retraining. |
 
 ---
 
-## 📊 API Contracts & Payload Schemas
+## ⚡ Edge Signal Processing & Math Formulas
 
-### 1. Triage Assessment Request: `POST /api/kneeva/triage`
+To prevent Python server latency during field screenings, real-time gait feature extraction occurs on-device inside `imuProcessor.ts`:
 
+$$\text{Cadence (steps/min)} = \frac{\text{Total Heel-Strike Peaks}}{\text{Duration (minutes)}}$$
+
+$$\text{Stride Time CV} = \frac{\sigma(\Delta t_{\text{steps}})}{\mu(\Delta t_{\text{steps}})}$$
+
+$$\text{Step Time Asymmetry} = \frac{|\mu_{\text{even steps}} - \mu_{\text{odd steps}}|}{\mu_{\text{all steps}}}$$
+
+$$\text{Effective Terrain BMI} = \text{BMI}_{\text{standard}} + 0.18 \times \text{Carried Load (kg)}$$
+
+---
+
+## 📊 API Contract Schemas
+
+### 1. Request Payload: `POST /api/v1/triage` (or `POST /triage/`)
 ```json
 {
-  "patient": {
+  "patient_id": "PT-10045",
+  "abha_number": "91-4521-8890-3412",
+  "tier_a": {
     "age": 58,
     "sex": "female",
-    "height_cm": 158.0,
-    "weight_kg": 68.0
-  },
-  "questionnaire": {
-    "carried_load_kg": 15.0,
-    "daily_incline_hours": 3.0,
+    "height_cm": 156.0,
+    "weight_kg": 64.0,
+    "daily_load_kg": 15.0,
+    "daily_incline_hours": 2.5,
     "squatting_difficulty": 3,
     "previous_injury": 0,
-    "activity_level": 2
+    "activity_level": 3
   },
-  "sensors": {
+  "tier_b": {
     "flat_gait_cadence": 88.5,
     "flat_gait_stride_time_cv": 0.092,
     "climbing_cadence": 76.0,
-    "climbing_stride_time_cv": 0.145,
-    "gait_step_time_asymmetry": 0.18,
-    "gait_speed_ms": 0.85,
-    "strength_ext_peak_n": 180.0,
-    "strength_flex_peak_n": 110.0,
-    "strength_ext_bw_ratio": 2.65,
-    "strength_hq_ratio": 0.61,
-    "rom_active_flexion_deg": 112.0,
-    "rom_active_extension_deficit_deg": 8.0,
-    "crepitus_event_count": 14,
-    "crepitus_total_energy": 2800.0,
+    "climbing_stride_time_cv": 0.14,
+    "gait_step_time_asymmetry": 0.16,
+    "strength_ext_peak_n": 185.0,
+    "strength_flex_peak_n": 115.0,
+    "strength_ext_bw_ratio": 2.89,
+    "rom_active_flexion_deg": 114.0,
+    "crepitus_event_count": 12.0,
     "crepitus_presence": 1.0
   }
 }
 ```
 
-### 2. Triage Assessment Response
-
+### 2. Triage Response Payload
 ```json
 {
-  "risk_score": 74.2,
-  "risk_level": "High",
+  "patient_id": "PT-10045",
+  "abha_id": "91-4521-8890-3412",
+  "oa_risk_score": 0.825,
+  "oa_risk_category": "high",
   "urgency": "Urgent",
-  "confidence": 0.89,
-  "primary_drivers": [
-    "Elevated stride time variability (CV = 0.092)",
-    "Severe quad extension weakness (BW ratio = 2.65)",
-    "Significant acoustic crepitus detected (14 events)",
-    "Active flexion deficit (>15 deg limitation)"
-  ],
-  "recommendations": [
-    "Immediate referral to secondary orthopedic center for bilateral radiograph",
-    "Prescribe non-weight-bearing isometric quadriceps strengthening",
-    "Provide unloader knee brace consultation"
-  ],
-  "radar_breakdown": {
-    "gait_stability": 42.0,
-    "muscle_strength": 38.0,
-    "range_of_motion": 65.0,
-    "joint_acoustics": 30.0,
-    "lifestyle_load": 45.0
+  "confidence_interval": [0.75, 0.89],
+  "effective_bmi": 29.0,
+  "feature_importance": {
+    "flat_gait_stride_time_cv": 0.15,
+    "climbing_cadence": 0.12,
+    "rom_flexion_deficit_deg": 0.11,
+    "carried_load_kg": 0.09,
+    "effective_bmi": 0.08
+  },
+  "clinical_explanation": "Patient demonstrates significantly elevated risk (82.5%). Primary drivers are high flat stride variability and slow climbing cadence.",
+  "clinical_action": "Refer to orthopedic specialist for immediate X-ray and conservative management.",
+  "missing_modality_count": 0,
+  "fhir_bundle": {
+    "resourceType": "Bundle",
+    "type": "document"
+  }
+}
+```
+
+### 3. ABDM Health Locker Sync Payload: `POST /abdm/link-report`
+```json
+{
+  "patient_id": "PT-10045",
+  "abha_id": "91-4521-8890-3412",
+  "triage_result": {
+    "oa_risk_score": 0.825,
+    "oa_risk_category": "high"
   }
 }
 ```
@@ -166,137 +204,88 @@ $$\text{Gait Speed (m/s)} \approx \frac{\text{Cadence} \times \text{Step Length 
 ```plaintext
 oa-ner-app/
 ├── backend/
-│   ├── firmware/
-│   │   └── oa_ner_sensor/
-│   │       └── oa_ner_sensor.ino     # ESP32 C++ firmware (MPU6050 + Flex sensor over UDP)
-│   ├── ble_manager.py                # Bluetooth Low Energy peripheral manager
-│   ├── database.py                   # SQLite storage & patient record schema
-│   ├── main.py                       # FastAPI application & REST routing
-│   ├── risk_engine.py                # Multi-tier clinical OA risk scoring algorithm
-│   ├── schemas.py                    # Pydantic data models & API contracts
-│   ├── security.py                   # SHA-256 PIN authentication for frontline workers
-│   ├── test_backend.py               # Automated pytest suite (8/8 unit tests)
-│   ├── udp_manager.py                # UDP socket receiver (port 5005)
-│   └── requirements.txt              # FastAPI, uvicorn, pydantic, pytest, httpx
+│   ├── app.py                       # Black-Box Inference Microservice (VPC Subnet & X-Internal-Auth)
+│   ├── main.py                      # FastAPI App Entry & UDP Session Manager
+│   ├── database.py                  # Patient SQLite Database Setup
+│   ├── test_server_triage.py        # Automated Pytest Suite (3/3 Passing)
+│   ├── requirements.txt             # Backend dependencies (FastAPI, SQLAlchemy, CatBoost, SHAP, Pytest)
+│   └── src/
+│       ├── server.py                # Production FastAPI Gateway, ABDM Endpoints & MLOps Flywheel
+│       ├── features/
+│       │   └── tier_c.py            # Indian Context & Effective Terrain-Adjusted BMI
+│       ├── fhir/
+│       │   └── fhir_mapper.py       # FHIR R4 Bundle Mapper & Payload Sanitizer
+│       ├── models/
+│       │   ├── fusion.py            # CatBoost Multimodal Fusion Model
+│       │   └── explainability.py    # TreeSHAP Feature Attribution Engine
+│       └── security/
+│           └── abdm_gateway.py      # ABDM / ABHA Verification Gateway
 │
 ├── src/
-│   ├── app/                          # Expo Router file-based screens
-│   │   ├── _layout.tsx               # Root layout & theme providers
-│   │   ├── dashboard.tsx             # Worker dashboard & recent screenings
-│   │   ├── index.tsx                 # PIN login screen
-│   │   ├── kneeva/
-│   │   │   ├── index.tsx             # Multimodal assessment intake flow (5 steps)
-│   │   │   └── results.tsx           # Triage output screen with radar charts & referral
-│   │   └── patient/                  # Patient registry & history views
-│   │
-│   ├── components/                   # Reusable UI elements (Glassmorphic cards, buttons)
-│   ├── context/                      # React state contexts (Auth, Assessment state)
-│   ├── i18n/                         # Internationalization (English & Hindi)
+│   ├── app/                         # Expo Router File-Based Navigation
+│   │   ├── _layout.tsx              # Root Layout & Render Pre-Warm Heartbeat Hook
+│   │   ├── dashboard.tsx            # ASHA Worker Dashboard (NIC Gov-Tech Aesthetic)
+│   │   ├── index.tsx                # Security PIN Authentication Screen
+│   │   ├── patient/
+│   │   │   └── [id].tsx             # Patient Profile & Full Triage Intake Form
+│   │   ├── report/
+│   │   │   └── [sessionId].tsx      # Detailed Diagnostic Insights & Model Contribution Breakdown
+│   │   └── kneeva/
+│   │       ├── index.tsx            # Multi-Step Triage Wizard (Demographics, Sensors, 60s IMU Walk)
+│   │       └── results.tsx          # Official Health Referral Certificate & 1-Tap PDF Share
+│   ├── components/                  # UI Components (BodyMap, PainSlider, StepIndicator, WaveformDisplay)
 │   ├── services/
-│   │   ├── authService.ts            # Worker PIN verification service
-│   │   ├── bleService.ts             # BLE scanner & sensor streaming
-│   │   ├── imuProcessor.ts           # On-device Edge IMU signal processor & peak detector
-│   │   ├── kneevaService.ts          # API connector to /api/kneeva/triage
-│   │   └── patientService.ts         # Patient CRUD operations
+│   │   ├── imuProcessor.ts          # Edge IMU Signal Processor & Dual Gait Telemetry Engine
+│   │   ├── kneevaService.ts         # Cloud Gateway Connector (https://kneeva-api.onrender.com)
+│   │   └── patientService.ts        # Local Patient Record Storage
+│   ├── styles/
+│   │   └── theme.ts                 # Modern Indian Government (NIC Gov-Tech) Design Tokens
 │   └── types/
-│       └── kneeva.ts                 # TypeScript interfaces for Kneeva contracts
+│       └── kneeva.ts                # TypeScript Integration Contracts
 │
-├── app.json                          # Expo configuration
-├── package.json                      # React Native & Expo dependencies
-├── requirements.txt                  # Workspace-level Python requirements
-└── tsconfig.json                     # TypeScript strict configuration
+├── package.json                     # React Native & Expo Dependencies
+└── README.md                        # Platform Documentation & Architecture Guide
 ```
 
 ---
 
-## 🚀 Setup & Execution Guide
+## 🚀 Quickstart Guide
 
-### Prerequisites
-- **Node.js**: v18+ & npm
-- **Python**: v3.10+ (Tested on Python 3.13)
-- **Expo Go App** (on Android/iOS device) or Android Studio Emulator
+### 1. Backend Setup & Automated Test Suite
+```bash
+# Navigate to backend directory
+cd backend
 
----
+# Install Python dependencies
+pip install -r requirements.txt
 
-### Step 1: Run the Python Backend
+# Run automated backend test suite (pytest)
+python -m pytest test_server_triage.py
 
-1. **Activate the Virtual Environment:**
-   - **PowerShell (Windows):**
-     ```powershell
-     .\.venv\Scripts\Activate.ps1
-     ```
-   - **macOS / Linux:**
-     ```bash
-     source .venv/bin/activate
-     ```
+# Launch FastAPI production gateway (Port 8000)
+uvicorn src.server:app --host 0.0.0.0 --port 8000 --reload
 
-2. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Launch black-box inference engine (Port 8001)
+uvicorn app:app --host 0.0.0.0 --port 8001 --reload
+```
 
-3. **Run Unit Tests:**
-   ```bash
-   pytest backend/test_backend.py
-   ```
+### 2. Frontend Setup & Verification
+```bash
+# Install Node dependencies
+npm install
 
-4. **Start the FastAPI Server:**
-   ```bash
-   cd backend
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-   * Interactive API Documentation: `http://localhost:8000/docs`
-   * Health Check: `http://localhost:8000/api/health`
+# Run TypeScript type verification
+npx tsc --noEmit
+
+# Start Expo development server
+npx expo start
+```
+- Press `a` to run in Android Emulator.
+- Scan QR code using **Expo Go** on Android/iOS physical device.
+- Press `w` for Web preview.
 
 ---
 
-### Step 2: Run the Mobile Application (Expo)
-
-1. **Install Node Dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Start the Expo Development Server:**
-   ```bash
-   npx expo start
-   ```
-
-3. **Launch on Device or Emulator:**
-   - Press `a` for Android Emulator.
-   - Scan the terminal QR code with **Expo Go** on your physical Android/iOS phone.
-   - Press `w` to preview on Web.
-
----
-
-### Step 3: Hardware Firmware (Optional)
-If connecting the custom ESP32 physical sensor:
-1. Open [backend/firmware/oa_ner_sensor/oa_ner_sensor.ino](backend/firmware/oa_ner_sensor/oa_ner_sensor.ino) in Arduino IDE.
-2. Install `ArduinoJson` (v6+) and `Adafruit_MPU6050`.
-3. Set your Wi-Fi SSID, Password, and your computer's local IP address (`backendIP`).
-4. Flash the code to the ESP32 via USB.
-5. The ESP32 will immediately stream UDP telemetry to your server on port `5005`.
-
----
-
-## 💡 Gemini Brainstorming & Co-Pilot Prompts
-
-Upload this `README.md` to **Google Gemini** along with any of the following prompts to get instant architectural, clinical, and algorithmic assistance:
-
-### Prompt 1: Enhancing the Edge Gait Algorithm
-> *"Based on the attached Kneeva README, review the edge peak-detection algorithm in `imuProcessor.ts`. How can I add dynamic thresholding (moving average window) to handle varying walking speeds and reduce false heel strikes in elderly rural patients?"*
-
-### Prompt 2: Refining the Multimodal Risk Engine
-> *"Refer to the 4-tier clinical risk engine described in the README. How can I formulate a Bayesian or logistic regression weighting model combining the IMU cadence, Quad-to-BW strength ratio, and crepitus acoustic energy to output validated Kellgren-Lawrence grade probabilities (KL 0 to 4)?"*
-
-### Prompt 3: ASHA Worker Usability & Offline Synchronization
-> *"I am building Kneeva for Indian community health workers (ASHA/ANM). Based on the architecture in the README, how should I design an offline-first SQLite sync queue in React Native that stores screenings locally in rural areas and uploads them automatically when Wi-Fi/4G is restored?"*
-
-### Prompt 4: Pitch Deck & Hackathon Judging Strategy
-> *"Review the clinical problem and edge-processing architecture in this README. Generate a compelling 3-minute hackathon pitch script highlighting why our edge-first approach beats traditional cloud-heavy AI for rural health screening."*
-
----
-
-## 👥 Contributors & Acknowledgements
-- **Project Kneeva** — Developed for Smart India Hackathon (SIH) Knee Osteoarthritis Screening Challenge.
-- Built with ❤️ using Expo, React Native, FastAPI, and ESP32.
+## 👥 Acknowledgements & SIH Guidelines
+- **Project Kneeva** — Engineered for Smart India Hackathon (SIH) Knee Osteoarthritis Screening Challenge.
+- Built with ❤️ using Expo, React Native, FastAPI, CatBoost, TreeSHAP, HL7 FHIR R4, and NIC Gov-Tech UI/UX standards.

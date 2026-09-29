@@ -28,7 +28,23 @@ interface AcousticChartProps {
   maxPoints?: number;
 }
 
-type SensorChartProps = FlexChartProps | VelocityChartProps | AcousticChartProps;
+import SerialPlotter from './SerialPlotter';
+
+export { SerialPlotter };
+
+interface SerialPlotterModeProps {
+  mode: 'serial_plotter';
+  title?: string;
+  data?: SensorReading[];
+  preferredNode?: 'node_right' | 'node_left';
+  maxPoints?: number;
+}
+
+type SensorChartProps =
+  | FlexChartProps
+  | VelocityChartProps
+  | AcousticChartProps
+  | SerialPlotterModeProps;
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -66,6 +82,18 @@ function simulateAcoustic(gyro: { x: number; y: number; z: number }, index: numb
 
 export default function SensorChart(props: SensorChartProps) {
   const { title, mode, maxPoints = 25 } = props;
+
+  // ─── Serial Plotter mode (11-channel live oscilloscope) ───────────
+  if (mode === 'serial_plotter') {
+    const { data, preferredNode } = props as SerialPlotterModeProps;
+    return (
+      <SerialPlotter
+        externalReadings={data}
+        preferredNode={preferredNode}
+        maxPoints={maxPoints}
+      />
+    );
+  }
 
   // ─── Acoustic chart (vibration/crepitus derived from gyro) ───────
   if (mode === 'acoustic') {

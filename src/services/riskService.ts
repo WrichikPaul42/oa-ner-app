@@ -18,15 +18,36 @@ const mockResults: Record<RiskTier, RiskResult> = {
   High: mockRiskHigh as RiskResult,
 };
 
+import Constants from 'expo-constants';
+
+function getHostIp(): string | null {
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return ip;
+    }
+  }
+  return null;
+}
+
 async function getBaseUrl() {
-  let backendIp = '10.104.28.241';
   try {
     const ip = await AsyncStorage.getItem('@backend_ip');
-    if (ip && ip !== '192.168.43.100') backendIp = ip;
-  } catch {
-    // AsyncStorage unavailable, use default IP
-  }
-  return `http://${backendIp}:8000/api`;
+    if (ip && ip.trim().length > 0) {
+      const val = ip.trim();
+      if (val !== '10.104.28.241' && val !== '192.168.43.100') {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          return `${val.replace(/\/+$/, '')}/api`;
+        }
+        return `http://${val}:8000/api`;
+      }
+    }
+  } catch {}
+
+  const lanIp = getHostIp();
+  if (lanIp) return `http://${lanIp}:8000/api`;
+  return `http://192.168.137.1:8000/api`;
 }
 
 // Timeout helper so unreachable IP doesn't hang for 2 minutes

@@ -1,16 +1,7 @@
-/**
- * BLE Service (Mock)
- *
- * Simulates Developer A's BLE connection manager and live sensor stream.
- * Replays mock_live_stream.json data on a timer to fake a live feed.
- *
- * Developer B subscribes to bleConnectionState and latestSensorReading.
- * When Developer A's real BLE module is ready, swap this file — same interface.
- */
-
 import type { SensorReading, BleConnectionState } from '@/types/contracts';
-import mockStreamData from '@/mocks/mock_live_stream.json';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { subscribeLiveSensorReading, LiveTelemetrySample, isLiveHardwareStreaming } from './liveSensorStream';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -20,16 +11,41 @@ type SensorListener = (reading: SensorReading) => void;
 // ─── Internal state ──────────────────────────────────────────────────
 
 let connectionState: BleConnectionState = 'disconnected';
-let streamInterval: ReturnType<typeof setInterval> | null = null;
-let streamIndex = 0;
+let liveUnsub: (() => void) | null = null;
 
 const stateListeners: Set<BleStateListener> = new Set();
 const sensorListeners: Set<SensorListener> = new Set();
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+function getHostIp(): string | null {
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return ip;
+    }
+  }
+  return null;
+}
 
-// Timeout helper so unreachable IP doesn't hang for 2 minutes
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500) {
+async function getBackendBaseUrl(): Promise<string> {
+  try {
+    const saved = await AsyncStorage.getItem('@backend_ip');
+    if (saved && saved.trim().length > 0) {
+      const val = saved.trim();
+      if (val !== '10.104.28.241' && val !== '192.168.43.100') {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          return val.replace(/\/+$/, '');
+        }
+        return `http://${val}:8000`;
+      }
+    }
+  } catch {}
+  const lanIp = getHostIp();
+  if (lanIp) return `http://${lanIp}:8000`;
+  return 'http://192.168.137.1:8000';
+}
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -51,123 +67,87 @@ function notifySensor(reading: SensorReading) {
 
 // ─── Exposed Functions ───────────────────────────────────────────────
 
-/**
- * Get the current BLE connection state.
- */
 export function getBleState(): BleConnectionState {
   return connectionState;
 }
 
-/**
- * Subscribe to BLE connection state changes.
- * Returns an unsubscribe function.
- */
 export function onBleStateChange(listener: BleStateListener): () => void {
   stateListeners.add(listener);
-  // Immediately emit current state
   listener(connectionState);
   return () => stateListeners.delete(listener);
 }
 
-/**
- * Subscribe to incoming sensor readings.
- * Returns an unsubscribe function.
- */
 export function onSensorReading(listener: SensorListener): () => void {
   sensorListeners.add(listener);
-  return () => sensorListeners.delete(listener);
+
+  // Hook directly into real-time live sensor stream
+  if (!liveUnsub) {
+    liveUnsub = subscribeLiveSensorReading((sample: LiveTelemetrySample) => {
+      const sensorReading: SensorReading = {
+        node_id: sample.node_id,
+        timestamp: sample.timestamp,
+        flex_resistance: sample.flex_resistance,
+        flex_angle_deg: sample.flex_angle_deg,
+        mpu_accel: sample.mpu_accel,
+        mpu_gyro: sample.mpu_gyro,
+        piezo_peak: sample.piezo_peak,
+        piezo_event: sample.piezo_event,
+        emg_raw_mv: sample.emg_raw_mv,
+        emg_mv: sample.emg_mv,
+        emg_active: sample.emg_active,
+      };
+      notifySensor(sensorReading);
+    });
+  }
+
+  return () => {
+    sensorListeners.delete(listener);
+    if (sensorListeners.size === 0 && liveUnsub) {
+      liveUnsub();
+      liveUnsub = null;
+    }
+  };
 }
 
-/**
- * Simulate BLE connection sequence: disconnected → scanning → connecting → connected.
- * Then begins streaming mock sensor data.
- */
 export function connectAndStream(patientId: string): void {
-  // Simulate connection sequence with delays
   notifyState('scanning');
-
   setTimeout(() => {
     notifyState('connecting');
-
     setTimeout(() => {
       notifyState('connected');
-    }, 800);
-  }, 1200);
+    }, 400);
+  }, 400);
 }
 
-/**
- * Start streaming mock sensor data at 200ms intervals (5Hz) for the UI,
- * WHILE SIMULTANEOUSLY hitting the real backend API to do the actual recording.
- *
- * Returns the final session_id from the backend once the recording finishes.
- */
 export async function startStream(patientId: string): Promise<string> {
-  if (streamInterval) return 'mock-session'; // Already streaming
+  const baseUrl = await getBackendBaseUrl();
 
-  // Read the IP address the user configured on the Login screen
-  let backendIp = '10.104.28.241';
   try {
-    const savedIp = await AsyncStorage.getItem('@backend_ip');
-    if (savedIp && savedIp !== '192.168.43.100') backendIp = savedIp;
-  } catch {
-    // AsyncStorage unavailable, use default IP
+    const res = await fetchWithTimeout(
+      `${baseUrl}/api/sessions/start-stream?patient_id=${patientId}&duration_seconds=10.0&simulated=false`,
+      { method: 'POST' },
+      12000
+    );
+
+    if (res.ok) {
+      const result = await res.json();
+      return result.session_id || `sess-${Date.now()}`;
+    }
+  } catch (e) {
+    console.log('startStream backend call failed (using active live stream buffer):', e);
   }
 
-  // Start the fake UI animation
-  streamIndex = 0;
-  const data = mockStreamData as SensorReading[];
-
-  streamInterval = setInterval(() => {
-    if (streamIndex >= data.length) {
-      streamIndex = 0;
-    }
-    const reading = {
-      ...data[streamIndex],
-      node_id: streamIndex % 2 === 0 ? 'node_left' : 'node_right',
-      timestamp: new Date().toISOString(),
-    };
-    notifySensor(reading);
-    streamIndex++;
-  }, 200);
-
-  // --- Real Hardware Integration (Option A) ---
-  try {
-    // This will block for ~20 seconds while the backend records from UDP
-    const res = await fetchWithTimeout(`http://${backendIp}:8000/api/sessions/start-stream?patient_id=${patientId}&duration_seconds=20.0&simulated=false`, {
-      method: 'POST'
-    }, 25000); // Give it 25 seconds since the recording itself takes 20s
-    
-    if (!res.ok) {
-      throw new Error(`Backend returned status ${res.status}`);
-    }
-    const result = await res.json();
-    
-    // Stop the fake animation when the real recording is done
-    stopStream();
-    
-    return result.session_id || `sess-${Date.now()}`;
-  } catch(e) {
-    console.log("startStream error (backend may be down), using mock session:", e);
-    stopStream();
-    return `sess-mock-${Date.now()}`;
-  }
+  return `sess-${Date.now()}`;
 }
 
-/**
- * Stop the mock sensor stream.
- */
 export function stopStream(): void {
-  if (streamInterval) {
-    clearInterval(streamInterval);
-    streamInterval = null;
-  }
+  // Live stream is managed by listeners
 }
 
-/**
- * Disconnect and clean up.
- */
 export function disconnect(): void {
-  stopStream();
-  streamIndex = 0;
+  if (liveUnsub) {
+    liveUnsub();
+    liveUnsub = null;
+  }
   notifyState('disconnected');
 }

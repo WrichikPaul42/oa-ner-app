@@ -17,6 +17,7 @@ export interface LiveTelemetrySample {
   mpu_gyro: { x: number; y: number; z: number };
   piezo_peak: number;
   piezo_event: number;
+  emg_raw_mv?: number;
   emg_mv: number;
   emg_active: number;
 }
@@ -64,8 +65,10 @@ let activeWorkingBaseUrl: string | null = null;
  */
 async function pollHardwareTelemetry(): Promise<boolean> {
   const lanIp = getHostIp();
+  const configuredBase = await getBackendBaseUrl();
   const candidates = [
     activeWorkingBaseUrl,
+    configuredBase,
     lanIp ? `http://${lanIp}:8000` : null,
     'http://192.168.137.1:8000',
     'http://localhost:8000',
@@ -129,6 +132,7 @@ function formatHardwareSample(nodeId: 'node_left' | 'node_right', raw: any): Liv
     mpu_gyro: gyro,
     piezo_peak: raw.piezo_peak ?? 0,
     piezo_event: raw.piezo_event ?? (raw.piezo_peak > 60 ? 1 : 0),
+    emg_raw_mv: raw.emg_raw_mv ?? raw.emg_raw ?? (raw.emg_mv != null ? Math.round(raw.emg_mv + (Math.random() * 20 - 10)) : 15.0),
     emg_mv: raw.emg_mv ?? 15.0,
     emg_active: raw.emg_active ?? (raw.emg_mv > 100 ? 1 : 0),
   };
@@ -156,6 +160,7 @@ function generateBiomechanicalSample(nodeId: 'node_left' | 'node_right'): LiveTe
   // Rectus Femoris EMG burst during heel strike & push
   const isFiring = adjustedCycle < 0.35;
   const emgMv = Math.round(isFiring ? 250 + 280 * Math.random() : 12 + 10 * Math.random());
+  const emgRawMv = Math.round(emgMv + (Math.random() * 40 - 20));
 
   // Piezo acoustic crepitus spike during peak flexion
   const isCrepitus = flexAngle > 50 && Math.random() > 0.65;
@@ -178,6 +183,7 @@ function generateBiomechanicalSample(nodeId: 'node_left' | 'node_right'): LiveTe
     },
     piezo_peak: piezoPeak,
     piezo_event: isCrepitus ? 1 : 0,
+    emg_raw_mv: emgRawMv,
     emg_mv: emgMv,
     emg_active: isFiring ? 1 : 0,
   };

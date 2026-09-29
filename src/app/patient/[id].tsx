@@ -634,6 +634,16 @@ export default function PatientProfileScreen() {
                 <Text style={styles.routineBtnText}>Launch 15-Minute Sensor Routine →</Text>
               </LinearGradient>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.routineLaunchBtn, { marginTop: 8, borderColor: '#0284C7', borderWidth: 1 }]}
+              onPress={() => router.push(`/assessment/${id || 'PT-10045'}` as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.routineBtnGradient, { backgroundColor: '#0F172A' }]}>
+                <Text style={[styles.routineBtnText, { color: '#38BDF8' }]}>📟 Live Serial Plotter (11-Channel Stream) →</Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* SECTION 5: AI Diagnostic Result & Triage Calculation */}

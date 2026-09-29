@@ -2,8 +2,9 @@ import socket
 import asyncio
 import json
 import random
+import time
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from schemas import LiveSensorReading, Vector3D
 
@@ -29,12 +30,104 @@ def validate_contract_1(reading_dict: Dict[str, Any]) -> bool:
     return True
 
 
-class UdpSessionManager:
-    """Handles raw UDP socket listening for multi-node Wi-Fi ESP32 sensors (Star Topology)."""
+class KneevaLiveDatagramProtocol(asyncio.DatagramProtocol):
+    """Asyncio Datagram protocol to receive continuous ESP32 UDP packets."""
+
+    def __init__(self, hub: "LiveSensorHub"):
+        self.hub = hub
+        self.transport: Optional[asyncio.DatagramTransport] = None
+
+    def connection_made(self, transport: asyncio.DatagramTransport):
+        self.transport = transport
+
+    def datagram_received(self, data: bytes, addr):
+        try:
+            raw_str = data.decode("utf-8", errors="ignore")
+            payload = json.loads(raw_str)
+            self.hub.ingest(payload, source_ip=addr[0])
+        except Exception:
+            pass
+
+
+class LiveSensorHub:
+    """Manages continuous in-memory live sensor stream from ESP32 nodes."""
 
     def __init__(self, host: str = UDP_HOST, port: int = UDP_PORT):
         self.host = host
         self.port = port
+        self.transport: Optional[asyncio.DatagramTransport] = None
+        self.latest_left: Optional[Dict[str, Any]] = None
+        self.latest_right: Optional[Dict[str, Any]] = None
+        self.last_left_ts: float = 0.0
+        self.last_right_ts: float = 0.0
+        self.packet_count: int = 0
+
+    async def start(self) -> Optional[asyncio.DatagramTransport]:
+        loop = asyncio.get_running_loop()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.setblocking(False)
+            sock.bind((self.host, self.port))
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: KneevaLiveDatagramProtocol(self),
+                sock=sock
+            )
+            self.transport = transport
+            print(f"[UDP Hub] Continuous hardware listener online on {self.host}:{self.port}")
+            return transport
+        except Exception as e:
+            print(f"[UDP Hub] Could not bind UDP socket on {self.host}:{self.port} ({e}). Check if another process is using port 5005.")
+            return None
+
+    def stop(self):
+        if self.transport:
+            self.transport.close()
+            self.transport = None
+
+    def ingest(self, payload: Dict[str, Any], source_ip: str = "127.0.0.1"):
+        node_id = payload.get("node_id")
+        now_ts = time.time()
+        if not payload.get("timestamp"):
+            payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+        payload["_source_ip"] = source_ip
+
+        if node_id == "node_left":
+            self.latest_left = payload
+            self.last_left_ts = now_ts
+            self.packet_count += 1
+            if self.packet_count % 10 == 1:
+                print(f"[UDP Hub Live] {node_id} @ {source_ip} | Flex={payload.get('flex_resistance')} | Accel={payload.get('mpu_accel')}")
+        elif node_id == "node_right":
+            self.latest_right = payload
+            self.last_right_ts = now_ts
+            self.packet_count += 1
+            if self.packet_count % 10 == 1:
+                print(f"[UDP Hub Live] {node_id} @ {source_ip} | Flex={payload.get('flex_resistance')} | EMG={payload.get('emg_mv')}mV | Piezo={payload.get('piezo_peak')}")
+
+    def get_live_payload(self) -> Dict[str, Any]:
+        now_ts = time.time()
+        # Active if a packet was received within the last 3.5 seconds
+        left_active = (now_ts - self.last_left_ts) < 3.5 if self.latest_left else False
+        right_active = (now_ts - self.last_right_ts) < 3.5 if self.latest_right else False
+
+        return {
+            "node_left": self.latest_left if left_active else None,
+            "node_right": self.latest_right if right_active else None,
+            "hardware_connected": left_active or right_active,
+            "packet_count": self.packet_count,
+            "server_time": datetime.now(timezone.utc).isoformat()
+        }
+
+
+live_sensor_hub = LiveSensorHub()
+
+
+class UdpSessionManager:
+    """Handles session recording from live buffer or direct stream."""
+
+    def __init__(self, hub: LiveSensorHub = live_sensor_hub):
+        self.hub = hub
         self.session_buffer: List[Dict[str, Any]] = []
 
     async def record_session(
@@ -43,51 +136,19 @@ class UdpSessionManager:
         duration_seconds: float = 10.0
     ) -> List[Dict[str, Any]]:
         self.session_buffer.clear()
-        
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setblocking(False)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        start_time = time.time()
+        end_time = start_time + duration_seconds
 
-        try:
-            sock.bind((self.host, self.port))
-            loop = asyncio.get_running_loop()
-            end_time = loop.time() + duration_seconds
-
-            while loop.time() < end_time:
-                remaining = end_time - loop.time()
-                if remaining <= 0:
-                    break
-                try:
-                    # FIX APPLIED HERE: Safely assign the bytes directly to 'data'
-                    data = await asyncio.wait_for(
-                        loop.sock_recv(sock, 4096),
-                        timeout=min(0.2, max(0.01, remaining))
-                    )
-                    raw_str = data.decode("utf-8")
-                    reading = json.loads(raw_str)
-                    
-                    # Attach high-precision UTC timestamp upon packet arrival if missing
-                    if "timestamp" not in reading or not reading["timestamp"]:
-                        reading["timestamp"] = datetime.now(timezone.utc).isoformat()
-
-                    # Log the incoming reading to the terminal so you can see the matrix!
-                    print(f"Ingested reading from {reading.get('node_id', 'unknown_node')} at {reading.get('timestamp')}")
-                    
-                    if validate_contract_1(reading):
-                        self.session_buffer.append(reading)
-                except asyncio.TimeoutError:
-                    continue
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    pass
-        except Exception as e:
-            print(f"[UDP] Hardware connection/listen error ({e}). Falling back to simulated stream.")
-            return await generate_simulated_stream(patient_id, duration_seconds)
-        finally:
-            sock.close()
+        while time.time() < end_time:
+            now_ts = time.time()
+            if self.hub.latest_left and (now_ts - self.hub.last_left_ts) < 1.0:
+                self.session_buffer.append(dict(self.hub.latest_left))
+            if self.hub.latest_right and (now_ts - self.hub.last_right_ts) < 1.0:
+                self.session_buffer.append(dict(self.hub.latest_right))
+            await asyncio.sleep(0.05)
 
         if not self.session_buffer:
-            # Fallback if no packets received during duration
-            print("[UDP] No packets received. Falling back to simulated stream.")
+            print("[UDP] No live hardware packets received during window. Falling back to simulated stream.")
             return await generate_simulated_stream(patient_id, duration_seconds)
 
         return self.session_buffer

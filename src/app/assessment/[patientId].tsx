@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ConnectionIndicator from '@/components/ConnectionIndicator';
 import SensorChart from '@/components/SensorChart';
+import SerialPlotter from '@/components/SerialPlotter';
 import { useTranslation } from '@/i18n';
 import {
   getBleState,
@@ -35,6 +36,7 @@ export default function AssessmentScreen() {
 
   const [bleState, setBleState] = useState<BleConnectionState>('disconnected');
   const [liveReadingBuffer, setLiveReadingBuffer] = useState<SensorReading[]>([]);
+  const [viewMode, setViewMode] = useState<'plotter' | 'legacy'>('plotter');
   const [isRecording, setIsRecording] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
   const [patient, setPatient] = useState<PatientRecord | null>(null);
@@ -155,41 +157,71 @@ export default function AssessmentScreen() {
         {/* BLE Connection Status */}
         <ConnectionIndicator state={bleState} />
 
-        {/* Live Charts — split by sensor node */}
-        {(() => {
-          const leftData = liveReadingBuffer.filter((r) => r.node_id === 'node_left');
-          const rightData = liveReadingBuffer.filter((r) => r.node_id === 'node_right');
+        {/* View Mode Toggle: Serial Plotter (Default) vs Modality Sub-charts */}
+        <View style={styles.viewModeRow}>
+          <TouchableOpacity
+            style={[styles.viewModeBtn, viewMode === 'plotter' && styles.viewModeBtnActive]}
+            onPress={() => setViewMode('plotter')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'plotter' && styles.viewModeTextActive]}>
+              📟 Arduino Serial Plotter (11-Ch)
+            </Text>
+          </TouchableOpacity>
 
-          return (
-            <>
-              <SensorChart
-                data={leftData}
-                title=" Left Knee Flexion"
-                mode="flex_left"
-              />
+          <TouchableOpacity
+            style={[styles.viewModeBtn, viewMode === 'legacy' && styles.viewModeBtnActive]}
+            onPress={() => setViewMode('legacy')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'legacy' && styles.viewModeTextActive]}>
+              📊 Modality Breakdown
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-              <SensorChart
-                data={rightData}
-                title=" Right Knee Flexion"
-                mode="flex_right"
-              />
+        {viewMode === 'plotter' ? (
+          <SerialPlotter
+            externalReadings={liveReadingBuffer}
+            preferredNode="node_right"
+            height={260}
+          />
+        ) : (
+          (() => {
+            const leftData = liveReadingBuffer.filter((r) => r.node_id === 'node_left');
+            const rightData = liveReadingBuffer.filter((r) => r.node_id === 'node_right');
 
-              <SensorChart
-                leftData={leftData}
-                rightData={rightData}
-                title=" Velocity"
-                mode="velocity"
-              />
+            return (
+              <>
+                <SensorChart
+                  data={leftData}
+                  title=" Left Knee Flexion"
+                  mode="flex_left"
+                />
 
-              <SensorChart
-                leftData={leftData}
-                rightData={rightData}
-                title="🔊 Acoustic Emission (Vibration)"
-                mode="acoustic"
-              />
-            </>
-          );
-        })()}
+                <SensorChart
+                  data={rightData}
+                  title=" Right Knee Flexion"
+                  mode="flex_right"
+                />
+
+                <SensorChart
+                  leftData={leftData}
+                  rightData={rightData}
+                  title=" Velocity"
+                  mode="velocity"
+                />
+
+                <SensorChart
+                  leftData={leftData}
+                  rightData={rightData}
+                  title="🔊 Acoustic Emission (Vibration)"
+                  mode="acoustic"
+                />
+              </>
+            );
+          })()
+        )}
 
         {/* Recording status */}
         {isRecording && (
@@ -261,7 +293,7 @@ export default function AssessmentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
@@ -279,32 +311,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   backIcon: {
     fontSize: 20,
-    color: '#475569',
+    color: '#334155',
+    fontWeight: '600',
   },
   headerCenter: {
     alignItems: 'center',
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.2,
   },
   patientName: {
     fontSize: 13,
     color: '#64748B',
     marginTop: 2,
+    fontWeight: '500',
   },
   recordingBanner: {
     flexDirection: 'row',
@@ -334,11 +378,16 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
   },
   recordBtn: {
     flexDirection: 'row',
@@ -402,5 +451,32 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.4,
+  },
+  viewModeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  viewModeBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  viewModeBtnActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0F766E',
+  },
+  viewModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  viewModeTextActive: {
+    color: '#FFFFFF',
   },
 });

@@ -27,14 +27,18 @@ from schemas import (
     KneevaTriageResponse
 )
 from risk_engine import assess_risk, derive_biomechanics
-from udp_manager import UdpSessionManager, generate_simulated_stream
+from udp_manager import UdpSessionManager, generate_simulated_stream, live_sensor_hub
 
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Start background UDP receiver on 0.0.0.0:5005 for ESP32 nodes
+    transport = await live_sensor_hub.start()
     yield
+    if transport:
+        live_sensor_hub.stop()
 
 app = FastAPI(
     title="OA-NER Screening App Backend API",
@@ -51,6 +55,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Live Continuous Sensor Telemetry Stream (For Mobile App & Visualizations) ---
+@app.get("/api/sensors/live")
+def get_live_sensor_stream():
+    """Returns the latest in-memory sensor telemetry packet from both ESP32 hardware nodes."""
+    return live_sensor_hub.get_live_payload()
+
+
+@app.post("/api/sensors/ingest")
+def ingest_live_sensor(payload: dict):
+    """Fallback HTTP ingestion endpoint for testing or HTTP-based sensors."""
+    live_sensor_hub.ingest(payload)
+    return {"status": "ok", "message": "Telemetry packet ingested"}
 
 
 # --- Security & Auth ---

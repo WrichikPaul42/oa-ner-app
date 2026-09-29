@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -92,6 +93,11 @@ export default function DashboardScreen() {
         <View style={styles.container}>
           {/* Official NIC Top Header Bar */}
           <View style={styles.header}>
+            <Image
+              source={require('../../assets/images/kneeva-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <View style={{ flex: 1 }}>
               <View style={styles.emblemRow}>
                 <View style={styles.emblemBadge}>
@@ -149,7 +155,25 @@ export default function DashboardScreen() {
                 Standardized diagnostic routine: Calibration, Quad Strength, Sit-to-Stand, TUG, 6-Min Gait, Stairs, Single-Leg Balance, Flare Recovery & CatBoost Multimodal AI.
               </Text>
               <View style={styles.kneevaActionRow}>
-                <Text style={[styles.kneevaActionText, { color: '#5EEAD4' }]}>⏱️ Start 15-Minute Assessment Routine →</Text>
+                <Text style={[styles.kneevaActionText, { color: '#5EEAD4', flex: 1 }]}>⏱️ Start 15-Minute Assessment Routine →</Text>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push('/assessment/pat-active' as any);
+                  }}
+                  style={{
+                    backgroundColor: '#0F172A',
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: '#38BDF8',
+                  }}
+                >
+                  <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '800' }}>
+                    📟 Serial Plotter
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </TouchableOpacity>
@@ -264,10 +288,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#003366',
-    padding: 16,
+    padding: 14,
     borderRadius: 8,
     marginBottom: 14,
     elevation: 3,
+    gap: 12,
+  },
+  headerLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
   },
   emblemRow: {
     flexDirection: 'row',
@@ -325,13 +356,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 6,
+    borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#B0BEC5',
-    elevation: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
   searchIcon: {
     fontSize: 15,
@@ -395,12 +430,16 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   kneevaActionRow: {
-    marginTop: 4,
-    backgroundColor: '#138808',
-    alignSelf: 'flex-start',
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   kneevaActionText: {
     color: '#FFFFFF',
@@ -455,20 +494,22 @@ const styles = StyleSheet.create({
   },
   fabWrapper: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 24,
     right: 16,
-    elevation: 4,
+    elevation: 6,
+    shadowColor: '#138808',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
   fab: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#138808',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#15803D',
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 28,
+    gap: 8,
   },
   fabIcon: {
     fontSize: 20,
@@ -479,6 +520,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     fontWeight: '800',
+    letterSpacing: 0.3,
   },
   modalOverlay: {
     flex: 1,

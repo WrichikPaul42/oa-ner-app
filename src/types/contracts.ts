@@ -13,8 +13,14 @@ export interface SensorReading {
   patient_id: string;
   timestamp: string; // ISO8601
   flex_resistance: number;
+  flex_angle_deg?: number;
   mpu_accel: { x: number; y: number; z: number };
   mpu_gyro: { x: number; y: number; z: number };
+  piezo_peak?: number;
+  piezo_event?: number;
+  emg_raw_mv?: number;
+  emg_mv?: number;
+  emg_active?: number;
 }
 
 // ─── Contract 2 — Saved Patient Record (DB → Screens 2, 3, 5) ───────

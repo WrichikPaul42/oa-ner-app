@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, ScrollView, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Animated, ScrollView, KeyboardAvoidingView, Platform, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -83,10 +83,17 @@ export default function LoginScreen() {
         {/* Logo / App Name */}
         <View style={styles.logoSection}>
           <Animated.View style={[styles.logoCircle, { transform: [{ translateY }] }]}>
-            <Text style={styles.logoText}>OA</Text>
+            <Image
+              source={require('../../assets/images/kneeva-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </Animated.View>
           <Text style={styles.appName}>{t('app_name')}</Text>
           <Text style={styles.loginTitle}>{t('login_title')}</Text>
+          <View style={styles.versionBadge}>
+            <Text style={styles.versionText}>v3.0 • XIAO ESP32-S3 Sense</Text>
+          </View>
         </View>
 
         {/* PIN Pad */}
@@ -153,39 +160,57 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 32,
+    marginTop: 36,
+    marginBottom: 28,
   },
   logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#0D9488',
+    width: 104,
+    height: 104,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     elevation: 8,
+    borderWidth: 1.5,
+    borderColor: '#CCFBF1',
+    overflow: 'hidden',
   },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 2,
+  logoImage: {
+    width: 92,
+    height: 92,
+    borderRadius: 22,
   },
   appName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 4,
+    letterSpacing: 0.5,
   },
   loginTitle: {
     fontSize: 15,
     color: '#64748B',
-    fontWeight: '400',
+    fontWeight: '500',
+  },
+  versionBadge: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  versionText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0D9488',
+    letterSpacing: 0.3,
   },
   ipContainer: {
     marginTop: 40, // Added margin top to push it down if there's space

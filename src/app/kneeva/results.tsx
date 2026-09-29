@@ -20,10 +20,17 @@ import * as Sharing from 'expo-sharing';
 import type { KneevaTriageResponse, KneevaTriagePayload } from '@/types/kneeva';
 import { forwardReportToAbdm } from '@/services/kneevaService';
 import { notifyAbhaForwarded } from '@/services/notificationService';
+import { ReportSummaryView } from '@/components/assessment15/ReportSummaryView';
+import type { Final15MinuteReport } from '@/types/assessment15';
 
 export default function KneevaResultsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ triageData?: string; payloadData?: string }>();
+  const params = useLocalSearchParams<{
+    triageData?: string;
+    payloadData?: string;
+    is15MinuteReport?: string;
+    fifteenMinReportData?: string;
+  }>();
 
   const [abhaForwardChoice, setAbhaForwardChoice] = useState<'ABDM_FORWARD' | 'LOCAL_ONLY'>('ABDM_FORWARD');
   const [isSyncingAbdm, setIsSyncingAbdm] = useState(false);
@@ -86,6 +93,24 @@ export default function KneevaResultsScreen() {
     }
   } catch {
     payload = null;
+  }
+
+  // Dedicated Separate Window Presentation for 15-Minute Assessment Routine
+  if (params.is15MinuteReport === 'true' && params.fifteenMinReportData) {
+    try {
+      const parsedReport: Final15MinuteReport = JSON.parse(params.fifteenMinReportData);
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+          <ReportSummaryView
+            report={parsedReport}
+            onRestart={() => router.replace('/routine' as any)}
+            onBackToDashboard={() => router.replace('/dashboard' as any)}
+          />
+        </SafeAreaView>
+      );
+    } catch (e) {
+      console.error('Failed to parse 15-minute report data:', e);
+    }
   }
 
   const category = (triageResult.oa_risk_category || 'moderate').toLowerCase();
@@ -282,6 +307,42 @@ export default function KneevaResultsScreen() {
     carried_load_kg: 'Daily Mountain Carried Load',
     effective_bmi: 'Effective Terrain-Adjusted BMI',
   };
+
+  // Render 15-Minute Comprehensive Report in its own dedicated window
+  if (params.is15MinuteReport === 'true' && params.fifteenMinReportData) {
+    try {
+      const fifteenReport: Final15MinuteReport = JSON.parse(params.fifteenMinReportData);
+      return (
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={() => router.replace('/dashboard')}
+              style={styles.backBtn}
+            >
+              <Text style={styles.backIcon}>✕</Text>
+            </TouchableOpacity>
+            <View style={styles.topBarCenter}>
+              <Text style={styles.topBarTitle}>15-Min Clinical Assessment</Text>
+              <Text style={styles.topBarPatient}>{fifteenReport.patientId} • Multimodal AI Report</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowJsonModal(true)}
+              style={styles.inspectBtn}
+            >
+              <Text style={styles.inspectBtnText}>{`{ } JSON`}</Text>
+            </TouchableOpacity>
+          </View>
+          <ReportSummaryView
+            report={fifteenReport}
+            onRestart={() => router.replace('/kneeva')}
+            onBackToDashboard={() => router.replace('/dashboard')}
+          />
+        </SafeAreaView>
+      );
+    } catch (e) {
+      console.error('Failed to parse 15-minute report data', e);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

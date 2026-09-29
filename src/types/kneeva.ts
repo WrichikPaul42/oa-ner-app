@@ -84,6 +84,8 @@ export interface KneevaTriageResponse {
   differential_flags: string[];
   missing_modality_count: number;
   effective_bmi: number;
+  inference_source?: 'CATBOOST_CLOUD_LIVE' | 'LOCAL_OFFLINE_FALLBACK';
+  model_name?: string;
 }
 
 export interface WalkTestResult {

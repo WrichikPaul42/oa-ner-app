@@ -225,7 +225,27 @@ def get_contract_mocks():
     }
 
 
-# --- Kneeva Mobile Integration API Contract ---
+# --- Real-Time Telemetry Bridge for Mobile ---
+_latest_live_telemetry = {
+    "node_left": None,
+    "node_right": None,
+    "last_updated": None
+}
+
+@app.get("/api/sensors/live")
+def get_live_sensors():
+    """Provides the mobile client with the latest UDP sensor readings from both knees."""
+    return _latest_live_telemetry
+
+@app.post("/api/sensors/ingest")
+def ingest_live_sensor(payload: dict):
+    """Receives UDP packet from receiver script and updates in-memory cache."""
+    node_id = payload.get("node_id")
+    if node_id in ("node_left", "node_right"):
+        _latest_live_telemetry[node_id] = payload
+        _latest_live_telemetry["last_updated"] = datetime.now(timezone.utc).isoformat()
+    return {"status": "ok"}
+
 @app.post("/triage/", response_model=KneevaTriageResponse)
 @app.post("/triage", response_model=KneevaTriageResponse, include_in_schema=False)
 @app.post("/api/v1/triage", response_model=KneevaTriageResponse, include_in_schema=False)

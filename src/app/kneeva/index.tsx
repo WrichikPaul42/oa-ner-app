@@ -26,9 +26,11 @@ import type {
   WalkTestResult,
   KneevaTriageResponse,
 } from '@/types/kneeva';
+import { FifteenMinuteAssessmentRoutine } from '@/components/assessment15/FifteenMinuteAssessmentRoutine';
 
 export default function KneevaTriageWizardScreen() {
   const router = useRouter();
+  const [assessmentMode, setAssessmentMode] = useState<'15min' | 'quick'>('15min');
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Sensor Scanning State for Step 2
@@ -1020,41 +1022,100 @@ export default function KneevaTriageWizardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.flex1}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* Top Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Kneeva OA Triage</Text>
-            <Text style={styles.headerSub}>Mobile Sensor & AI Assessment</Text>
-          </View>
-          <View style={styles.backBtnPlaceholder} />
-        </View>
-
-        {/* 3-Step Indicator */}
-        <StepIndicator currentStep={currentStep} totalSteps={3} />
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      {/* Protocol Mode Switcher Bar */}
+      <View style={styles.modeSwitchBar}>
+        <TouchableOpacity
+          style={[styles.modeTab, assessmentMode === '15min' && styles.modeTabActive]}
+          onPress={() => setAssessmentMode('15min')}
+          activeOpacity={0.7}
         >
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <Text style={[styles.modeTabText, assessmentMode === '15min' && styles.modeTabTextActive]}>
+            ⏱️ 15-Min Guided Routine
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeTab, assessmentMode === 'quick' && styles.modeTabActive]}
+          onPress={() => setAssessmentMode('quick')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.modeTabText, assessmentMode === 'quick' && styles.modeTabTextActive]}>
+            ⚡ Quick 3-Step Triage
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {assessmentMode === '15min' ? (
+        <FifteenMinuteAssessmentRoutine patientId={patientId || 'PT-10045'} />
+      ) : (
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* Top Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>Kneeva OA Triage</Text>
+              <Text style={styles.headerSub}>Mobile Sensor & AI Assessment</Text>
+            </View>
+            <View style={styles.backBtnPlaceholder} />
+          </View>
+
+          {/* 3-Step Indicator */}
+          <StepIndicator currentStep={currentStep} totalSteps={3} />
+
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  modeSwitchBar: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modeTabActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#14B8A6',
+  },
+  modeTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  modeTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#F4F4F0',

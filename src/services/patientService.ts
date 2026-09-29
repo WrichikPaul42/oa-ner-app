@@ -65,44 +65,73 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
  * Get all patient records.
  */
 export async function getPatients(): Promise<PatientRecord[]> {
-  const baseUrl = await getBaseUrl();
+  const candidateUrls: string[] = [];
   try {
-    const response = await fetchWithTimeout(`${baseUrl}/patients`);
-    if (!response.ok) throw new Error('Failed to fetch patients');
-    const backendPatients = (await response.json()) as PatientRecord[];
-    return [...backendPatients, ...staticMockPatients];
-  } catch (error) {
-    // Try cloud fallback if local LAN attempt failed
-    if (!baseUrl.includes('kneeva-api.onrender.com')) {
-      try {
-        const cloudResp = await fetchWithTimeout(`${DEFAULT_CLOUD_URL}/api/patients`);
-        if (cloudResp.ok) {
-          const backendPatients = (await cloudResp.json()) as PatientRecord[];
-          return [...backendPatients, ...staticMockPatients];
-        }
-      } catch {
-        // Cloud also down
-      }
+    const baseUrl = await getBaseUrl();
+    if (baseUrl) {
+      candidateUrls.push(`${baseUrl}/patients`);
+      candidateUrls.push(`${baseUrl.replace(/\/api$/, '')}/api/patients`);
     }
-    console.log('getPatients error (backend may be down), using mocks only:', error);
-    return staticMockPatients;
+  } catch {}
+
+  const lanIp = getHostIp();
+  if (lanIp) {
+    candidateUrls.push(`http://${lanIp}:8000/api/patients`);
+    candidateUrls.push(`http://${lanIp}:8000/patients`);
   }
+  candidateUrls.push('http://localhost:8000/api/patients');
+  candidateUrls.push('http://localhost:8000/patients');
+
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetchWithTimeout(url, {}, 2500);
+      if (response && response.ok) {
+        const backendPatients = (await response.json()) as PatientRecord[];
+        if (Array.isArray(backendPatients) && backendPatients.length > 0) {
+          const seen = new Set(backendPatients.map((p) => p.patient_id));
+          const remainingMocks = staticMockPatients.filter((p) => !seen.has(p.patient_id));
+          return [...backendPatients, ...remainingMocks];
+        }
+      }
+    } catch {
+      // endpoint not reachable, try next candidate
+    }
+  }
+
+  return staticMockPatients;
 }
 
 /**
  * Get a single patient by ID. Returns undefined if not found.
  */
 export async function getPatientById(patientId: string): Promise<PatientRecord | undefined> {
-  const baseUrl = await getBaseUrl();
+  const candidateUrls: string[] = [];
   try {
-    const response = await fetchWithTimeout(`${baseUrl}/patients/${patientId}`);
-    if (response.ok) {
-      return await response.json();
+    const baseUrl = await getBaseUrl();
+    if (baseUrl) {
+      candidateUrls.push(`${baseUrl}/patients/${patientId}`);
+      candidateUrls.push(`${baseUrl.replace(/\/api$/, '')}/api/patients/${patientId}`);
     }
-  } catch (error) {
-    console.log('getPatientById error:', error);
+  } catch {}
+
+  const lanIp = getHostIp();
+  if (lanIp) {
+    candidateUrls.push(`http://${lanIp}:8000/api/patients/${patientId}`);
+    candidateUrls.push(`http://${lanIp}:8000/patients/${patientId}`);
   }
-  
+  candidateUrls.push(`http://localhost:8000/api/patients/${patientId}`);
+
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetchWithTimeout(url, {}, 2500);
+      if (response && response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
   // Fallback to mock patients
   return staticMockPatients.find((p) => p.patient_id === patientId);
 }

@@ -18,8 +18,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-import BodyMap from '@/components/BodyMap';
-import PainSlider from '@/components/PainSlider';
 import WaveformDisplay from '@/components/kneeva/WaveformDisplay';
 import { useTranslation } from '@/i18n';
 import { getPatientById, savePatient } from '@/services/patientService';
@@ -55,8 +53,29 @@ export default function PatientProfileScreen() {
   const [gender, setGender] = useState(isNew ? 'Female' : 'Female');
   const [villageBlock, setVillageBlock] = useState(isNew ? 'Spiti Valley, Lahaul' : 'Kaza, Spiti Valley');
   const [abhaNumber, setAbhaNumber] = useState('91-4521-8890-3412');
-  const [painMapEntries, setPainMapEntries] = useState<PainMapEntry[]>([]);
-  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [leftKneePain, setLeftKneePain] = useState(6);
+  const [rightKneePain, setRightKneePain] = useState(3);
+  const [painMapEntries, setPainMapEntries] = useState<PainMapEntry[]>([
+    { body_region: 'Left Knee', pain_level: 6 },
+    { body_region: 'Right Knee', pain_level: 3 },
+  ]);
+
+  const updateKneePain = (leg: 'left' | 'right', val: number) => {
+    const clamped = Math.max(0, Math.min(10, val));
+    if (leg === 'left') {
+      setLeftKneePain(clamped);
+      setPainMapEntries((prev) => [
+        { body_region: 'Left Knee', pain_level: clamped },
+        ...prev.filter((e) => !e.body_region.toLowerCase().includes('left')),
+      ]);
+    } else {
+      setRightKneePain(clamped);
+      setPainMapEntries((prev) => [
+        { body_region: 'Right Knee', pain_level: clamped },
+        ...prev.filter((e) => !e.body_region.toLowerCase().includes('right')),
+      ]);
+    }
+  };
 
   // ─── 2. Automated Sensor Readout State (No Manual Typing) ─────────
   const [goniometerAvailable, setGoniometerAvailable] = useState(true);
@@ -429,29 +448,7 @@ export default function PatientProfileScreen() {
     }
   };
 
-  // ─── Body Map Handlers ────────────────────────────────────────────
-  const handleRegionPress = useCallback((regionId: string) => setActiveRegion(regionId), []);
-  const handlePainConfirm = useCallback(
-    (level: number) => {
-      if (!activeRegion) return;
-      setPainMapEntries((prev) => {
-        const existing = prev.findIndex((e) => e.body_region === activeRegion);
-        if (existing >= 0) {
-          const updated = [...prev];
-          updated[existing] = { body_region: activeRegion, pain_level: level };
-          return updated;
-        }
-        return [...prev, { body_region: activeRegion, pain_level: level }];
-      });
-      setActiveRegion(null);
-    },
-    [activeRegion]
-  );
 
-  const activeRegionEntry = useMemo(
-    () => (activeRegion ? painMapEntries.find((e) => e.body_region === activeRegion) ?? null : null),
-    [activeRegion, painMapEntries]
-  );
 
   if (isLoading) {
     return (
@@ -520,273 +517,124 @@ export default function PatientProfileScreen() {
             </View>
           </View>
 
-          {/* SECTION 2: Body Pain Map */}
+          {/* SECTION 2: Knee Joint Pain Assessment (Bilateral Only) */}
           <View style={styles.card}>
-            <Text style={styles.cardHeader}>🗺️ 2. Body Pain Map</Text>
-            <Text style={styles.cardSub}>Tap knee or joint regions to set pain severity score (1-10)</Text>
-            <BodyMap painEntries={painMapEntries} onRegionPress={handleRegionPress} />
-            {activeRegion && (
-              <PainSlider
-                regionId={activeRegion}
-                initialLevel={activeRegionEntry?.pain_level ?? 5}
-                onConfirm={handlePainConfirm}
-                onCancel={() => setActiveRegion(null)}
-                onRemove={() => {
-                  setPainMapEntries((prev) => prev.filter((e) => e.body_region !== activeRegion));
-                  setActiveRegion(null);
-                }}
-              />
-            )}
-          </View>
+            <Text style={styles.cardHeader}>🦵 2. Knee Joint Pain Assessment (Bilateral)</Text>
+            <Text style={styles.cardSub}>Rate localized pain severity for Left and Right knee joints (VAS 0 - 10)</Text>
 
-          {/* SECTION 3: Automated Clinical Sensor Readouts (No Manual Input) */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.cardHeader}>📡 3. Clinical Sensor Readouts</Text>
-                <Text style={styles.cardSub} numberOfLines={2}>{sensorStatusMsg}</Text>
-              </View>
-              <TouchableOpacity style={styles.sensorScanBtn} onPress={handleScanSensors} disabled={isSensorScanning}>
-                {isSensorScanning ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.sensorScanText}>⚡ Read Sensors</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Goniometer */}
-            <View style={styles.sensorBox}>
-              <Text style={styles.sensorBoxTitle}>📐 Digital Goniometer (Range of Motion)</Text>
-              <View style={styles.row}>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>ACTIVE FLEXION</Text>
-                  <Text style={styles.readoutVal}>{romActiveFlexion}°</Text>
+            {/* Left Knee Card */}
+            <View style={styles.kneePainCard}>
+              <View style={styles.kneePainHeader}>
+                <View>
+                  <Text style={styles.kneeLabel}>LEFT KNEE JOINT</Text>
+                  <Text style={styles.kneePainDesc}>
+                    {leftKneePain === 0 ? 'No Pain' : leftKneePain <= 3 ? 'Mild Discomfort' : leftKneePain <= 6 ? 'Moderate Arthritic Pain' : 'Severe / Limiting Pain'}
+                  </Text>
                 </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>EXT. DEFICIT</Text>
-                  <Text style={styles.readoutVal}>{romActiveExtDeficit}°</Text>
-                </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>PASSIVE FLEXION</Text>
-                  <Text style={styles.readoutVal}>{romPassiveFlexion}°</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Dynamometer */}
-            <View style={styles.sensorBox}>
-              <Text style={styles.sensorBoxTitle}>💪 Force Dynamometer (Quad Strength)</Text>
-              <View style={styles.row}>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>EXT. KICK FORCE</Text>
-                  <Text style={styles.readoutVal}>{strengthExtPeakN} N</Text>
-                </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>FLEX. PULL FORCE</Text>
-                  <Text style={styles.readoutVal}>{strengthFlexPeakN} N</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Crepitus Mic */}
-            <View style={styles.sensorBox}>
-              <Text style={styles.sensorBoxTitle}>🔊 Acoustic Microphone (Crepitus Clicks)</Text>
-              <View style={styles.row}>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>CLICKS COUNT</Text>
-                  <Text style={styles.readoutVal}>{crepitusCount} Clicks</Text>
-                </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>SOUND INTENSITY</Text>
-                  <Text style={styles.readoutVal}>{crepitusTotalEnergy} dB/Hz</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* sEMG Patches */}
-            <View style={styles.sensorBox}>
-              <Text style={styles.sensorBoxTitle}>⚡ sEMG Bio-Patch Array (RF & BF)</Text>
-              <View style={styles.row}>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>CCI OVERLAP</Text>
-                  <Text style={styles.readoutVal}>{cocontractionCci}</Text>
-                </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>RF THIGH</Text>
-                  <Text style={styles.readoutVal}>{neuroRfPct}%</Text>
-                </View>
-                <View style={[styles.readoutGroup, styles.flex]}>
-                  <Text style={styles.readoutLabel}>BF HAMSTRING</Text>
-                  <Text style={styles.readoutVal}>{neuroBfPct}%</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* SECTION 4: Functional IMU Walk Test */}
-          {(() => {
-            const activeResult = walkSubStep === 'flat' ? flatResult : climbingResult;
-            const currentPoints =
-              activeSensorGraph === 'goniometer'
-                ? goniometerPoints
-                : activeSensorGraph === 'force'
-                ? forcePoints
-                : activeSensorGraph === 'crepitus'
-                ? crepitusPoints
-                : activeSensorGraph === 'semg'
-                ? semgPoints
-                : waveformPoints;
-
-            const currentGraphLabel =
-              activeSensorGraph === 'goniometer'
-                ? '📐 Goniometer Flexion Angle (°)'
-                : activeSensorGraph === 'force'
-                ? '💪 Dynamometer Force Load Cell (N)'
-                : activeSensorGraph === 'crepitus'
-                ? '🔊 Acoustic Crepitus Sound (dB/Hz)'
-                : activeSensorGraph === 'semg'
-                ? '⚡ sEMG Bio-Patch Muscle Tension'
-                : '👟 IMU Forward Swing & Impact';
-
-            return (
-              <View style={styles.card}>
-                <Text style={styles.cardHeader}>👟 4. Functional IMU & Multi-Sensor 60s Test</Text>
-                <Text style={styles.cardSub}>
-                  All 5 clinical sensors stream live telemetry dynamically during the 60-second test session.
+                <Text style={[styles.kneeScoreBadge, leftKneePain >= 7 ? styles.badgeHigh : leftKneePain >= 4 ? styles.badgeMod : styles.badgeLow]}>
+                  {leftKneePain} / 10
                 </Text>
-
-                <View style={styles.walkTabRow}>
-                  <TouchableOpacity
-                    style={[styles.walkTab, walkSubStep === 'flat' && styles.walkTabActive]}
-                    onPress={() => setWalkSubStep('flat')}
-                  >
-                    <Text style={[styles.walkTabText, walkSubStep === 'flat' && styles.walkTabTextActive]}>
-                      1. Slow Walk (60s) {flatResult ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.walkTab, walkSubStep === 'climbing' && styles.walkTabActive]}
-                    onPress={() => setWalkSubStep('climbing')}
-                  >
-                    <Text style={[styles.walkTabText, walkSubStep === 'climbing' && styles.walkTabTextActive]}>
-                      2. Fast Walk (60s) {climbingResult ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Live Multi-Sensor Graph Switcher Tabs */}
-                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-                  {(['imu', 'goniometer', 'force', 'crepitus', 'semg'] as const).map((sensorKey) => {
-                    const isActive = activeSensorGraph === sensorKey;
-                    const labels = {
-                      imu: '👟 IMU',
-                      goniometer: '📐 ROM',
-                      force: '💪 Force',
-                      crepitus: '🔊 Sound',
-                      semg: '⚡ sEMG',
-                    };
-                    return (
-                      <TouchableOpacity
-                        key={sensorKey}
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                          backgroundColor: isActive ? '#0D9488' : '#F1F5F9',
-                        }}
-                        onPress={() => setActiveSensorGraph(sensorKey)}
-                      >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: isActive ? '#FFFFFF' : '#475569' }}>
-                          {labels[sensorKey]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {isWalkRunning ? (
-                  <View style={styles.walkActiveBox}>
-                    <View style={styles.recordingHeaderRow}>
-                      <View style={styles.recBadge}>
-                        <View style={styles.recDot} />
-                        <Text style={styles.recBadgeText}>
-                          🔴 REC • {walkSubStep === 'flat' ? '60s Slow Walk Telemetry' : '60s Fast Walk Telemetry'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timerText}>{secondsRemaining}s</Text>
-                    </View>
-
-                    <Text style={styles.walkSubText}>
-                      Streaming {walkSubStep === 'flat' ? 'Slow Walk' : 'Fast Walk'} • Steps: {currentStepCount} | Cadence: {currentCadence} SPM
-                    </Text>
-
-                    <WaveformDisplay
-                      dataPoints={currentPoints}
-                      lastPeakDetected={lastPeakDetected}
-                      stepCount={currentStepCount}
-                      currentCadence={currentCadence}
-                      label={currentGraphLabel}
-                    />
-
-                    <TouchableOpacity
-                      style={styles.stopWalkBtn}
-                      onPress={stopWalkTest}
-                    >
-                      <Text style={styles.stopWalkBtnText}>🛑 Stop & Process 60s Test</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={{ gap: 10, marginTop: 10 }}>
-                    {activeResult ? (
-                      <View style={styles.testCompletedBanner}>
-                        <View style={styles.testCompletedHeader}>
-                          <Text style={styles.testCompletedTitle}>
-                            ✅ {walkSubStep === 'flat' ? 'Slow Walk (60s)' : 'Fast Walk (60s)'} Telemetry Saved
-                          </Text>
-                          <View style={styles.savedBadge}>
-                            <Text style={styles.savedBadgeText}>✓ PROCESSED BY AI</Text>
-                          </View>
-                        </View>
-                        <View style={styles.metricsSummaryGrid}>
-                          <View style={styles.metricsSummaryItem}>
-                            <Text style={styles.metricsSummaryLabel}>STEPS</Text>
-                            <Text style={styles.metricsSummaryVal}>{activeResult.stepCount}</Text>
-                          </View>
-                          <View style={styles.metricsSummaryItem}>
-                            <Text style={styles.metricsSummaryLabel}>CADENCE</Text>
-                            <Text style={styles.metricsSummaryVal}>{activeResult.cadence.toFixed(1)} SPM</Text>
-                          </View>
-                          <View style={styles.metricsSummaryItem}>
-                            <Text style={styles.metricsSummaryLabel}>STRIDE CV</Text>
-                            <Text style={styles.metricsSummaryVal}>{activeResult.strideTimeCV.toFixed(3)}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ) : null}
-
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity
-                        style={[styles.primaryActionBtn, { flex: 1 }]}
-                        onPress={() => startWalkTest(walkSubStep, false)}
-                      >
-                        <Text style={styles.primaryActionText}>
-                          ▶ {activeResult ? 'Re-run' : 'Run'} {walkSubStep === 'flat' ? 'Sub-Test 1: 60s Slow Walk' : 'Sub-Test 2: 60s Fast Walk'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.demoFillBtn}
-                        onPress={() => prefillDemoWalk(walkSubStep)}
-                      >
-                        <Text style={styles.demoFillText}>⚡ Quick Fill</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
               </View>
-            );
-          })()}
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepCircleBtn} onPress={() => updateKneePain('left', leftKneePain - 1)}>
+                  <Text style={styles.stepCircleText}>−</Text>
+                </TouchableOpacity>
+                <View style={styles.presetButtonsRow}>
+                  {[0, 2, 4, 6, 8, 10].map((num) => (
+                    <TouchableOpacity
+                      key={num}
+                      style={[styles.presetPill, leftKneePain === num && styles.presetPillActive]}
+                      onPress={() => updateKneePain('left', num)}
+                    >
+                      <Text style={[styles.presetText, leftKneePain === num && styles.presetTextActive]}>{num}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity style={styles.stepCircleBtn} onPress={() => updateKneePain('left', leftKneePain + 1)}>
+                  <Text style={styles.stepCircleText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Right Knee Card */}
+            <View style={styles.kneePainCard}>
+              <View style={styles.kneePainHeader}>
+                <View>
+                  <Text style={styles.kneeLabel}>RIGHT KNEE JOINT</Text>
+                  <Text style={styles.kneePainDesc}>
+                    {rightKneePain === 0 ? 'No Pain' : rightKneePain <= 3 ? 'Mild Discomfort' : rightKneePain <= 6 ? 'Moderate Arthritic Pain' : 'Severe / Limiting Pain'}
+                  </Text>
+                </View>
+                <Text style={[styles.kneeScoreBadge, rightKneePain >= 7 ? styles.badgeHigh : rightKneePain >= 4 ? styles.badgeMod : styles.badgeLow]}>
+                  {rightKneePain} / 10
+                </Text>
+              </View>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity style={styles.stepCircleBtn} onPress={() => updateKneePain('right', rightKneePain - 1)}>
+                  <Text style={styles.stepCircleText}>−</Text>
+                </TouchableOpacity>
+                <View style={styles.presetButtonsRow}>
+                  {[0, 2, 4, 6, 8, 10].map((num) => (
+                    <TouchableOpacity
+                      key={num}
+                      style={[styles.presetPill, rightKneePain === num && styles.presetPillActive]}
+                      onPress={() => updateKneePain('right', num)}
+                    >
+                      <Text style={[styles.presetText, rightKneePain === num && styles.presetTextActive]}>{num}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity style={styles.stepCircleBtn} onPress={() => updateKneePain('right', rightKneePain + 1)}>
+                  <Text style={styles.stepCircleText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* SECTION 3: 15-Minute Biomechanical Assessment Routine Sync */}
+          <View style={styles.routineLaunchCard}>
+            <View style={styles.routineHeaderRow}>
+              <View style={styles.routineIconBadge}>
+                <Text style={{ fontSize: 24 }}>⏱️</Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.routineCardTitle}>15-Minute Guided Assessment Routine</Text>
+                <Text style={styles.routineCardSub}>
+                  Synchronized with real dual-ESP32 bilateral streaming across all 9 clinical steps (ROM, Quad Strength, Chair Stand, TUG, Gait, Stairs & Balance).
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.routineFeaturesGrid}>
+              <View style={styles.routineFeatureChip}>
+                <Text style={styles.chipText}>✓ Dual ESP32 Live Stream</Text>
+              </View>
+              <View style={styles.routineFeatureChip}>
+                <Text style={styles.chipText}>✓ Bilateral Symmetry Graphs</Text>
+              </View>
+              <View style={styles.routineFeatureChip}>
+                <Text style={styles.chipText}>✓ CatBoost Multimodal AI</Text>
+              </View>
+              <View style={styles.routineFeatureChip}>
+                <Text style={styles.chipText}>✓ Dedicated Window Report</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.routineLaunchBtn}
+              onPress={() => router.push({ pathname: '/routine', params: { patientId } } as any)}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#0D9488', '#0F766E']}
+                style={styles.routineBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.routineBtnText}>Launch 15-Minute Sensor Routine →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
           {/* SECTION 5: AI Diagnostic Result & Triage Calculation */}
           <View style={styles.card}>
@@ -981,4 +829,160 @@ const styles = StyleSheet.create({
   abhaSuccessBox: { marginTop: 10, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#138808', padding: 10, borderRadius: 6 },
   abhaSuccessTitle: { fontSize: 12, fontWeight: '800', color: '#138808' },
   abhaSuccessSub: { fontSize: 11, color: '#15803D', fontWeight: '700' },
+
+  // Bilateral Knee Pain Card Styles
+  kneePainCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  kneePainHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  kneeLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  kneePainDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  kneeScoreBadge: {
+    fontSize: 14,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  badgeHigh: {
+    backgroundColor: '#FEE2E2',
+    color: '#DC2626',
+  },
+  badgeMod: {
+    backgroundColor: '#FEF3C7',
+    color: '#D97706',
+  },
+  badgeLow: {
+    backgroundColor: '#DCFCE7',
+    color: '#16A34A',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepCircleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCircleText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  presetButtonsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  presetPill: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  presetPillActive: {
+    backgroundColor: '#0D9488',
+  },
+  presetText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  presetTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // 15-Minute Routine Launch Card Styles
+  routineLaunchCard: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  routineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  routineIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routineCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#115E59',
+  },
+  routineCardSub: {
+    fontSize: 12,
+    color: '#0F766E',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  routineFeaturesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  routineFeatureChip: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  routineLaunchBtn: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  routineBtnGradient: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routineBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
 });

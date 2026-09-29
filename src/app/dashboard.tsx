@@ -131,25 +131,25 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {/* Gov-Tech Primary Action Card */}
+          {/* Single Official Protocol: Kneeva 15-Minute Comprehensive Assessment */}
           <TouchableOpacity
-            style={styles.kneevaBanner}
-            onPress={() => router.push('/kneeva' as any)}
+            style={[styles.kneevaBanner, { backgroundColor: '#042F2E', borderColor: '#0D9488' }]}
+            onPress={() => router.push('/routine' as any)}
             activeOpacity={0.9}
           >
             <View style={styles.kneevaContent}>
               <View style={styles.kneevaHeaderRow}>
-                <View style={styles.kneevaBadge}>
+                <View style={[styles.kneevaBadge, { backgroundColor: '#0D9488' }]}>
                   <Text style={styles.kneevaBadgeText}>OFFICIAL PROTOCOL</Text>
                 </View>
-                <Text style={styles.kneevaTagline}>AI & IMU Triage</Text>
+                <Text style={[styles.kneevaTagline, { color: '#2DD4BF' }]}>Dual ESP32 Live Telemetry • 9 Steps</Text>
               </View>
-              <Text style={styles.kneevaTitle}>Start New Patient Triage</Text>
-              <Text style={styles.kneevaDesc}>
-                3-Step Intake: Demographics & Survey • Clinical Sensor Readouts • 60s Dual Gait Test & CatBoost AI Diagnostic
+              <Text style={styles.kneevaTitle}>15-Minute Comprehensive Clinical Assessment</Text>
+              <Text style={[styles.kneevaDesc, { color: '#CCFBF1' }]}>
+                Standardized diagnostic routine: Calibration, Quad Strength, Sit-to-Stand, TUG, 6-Min Gait, Stairs, Single-Leg Balance, Flare Recovery & CatBoost Multimodal AI.
               </Text>
               <View style={styles.kneevaActionRow}>
-                <Text style={styles.kneevaActionText}>▶ Launch 60s Multi-Sensor Assessment</Text>
+                <Text style={[styles.kneevaActionText, { color: '#5EEAD4' }]}>⏱️ Start 15-Minute Assessment Routine →</Text>
               </View>
             </View>
           </TouchableOpacity>

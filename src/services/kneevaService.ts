@@ -117,6 +117,8 @@ function normalizeTriageResponse(raw: any, payload: KneevaTriagePayload): Kneeva
     differential_flags: raw.differential_flags || [],
     missing_modality_count: raw.missing_modality_count ?? 0,
     effective_bmi: raw.effective_bmi || raw.tier_c?.effective_bmi || 25.0,
+    inference_source: raw.inference_source || 'CATBOOST_CLOUD_LIVE',
+    model_name: raw.model_backend || raw.model_name || 'CatBoost Multimodal v1.0 (fusion_catboost_v1.cbm)',
   };
 }
 
@@ -127,24 +129,59 @@ export async function submitKneevaTriage(
   payload: KneevaTriagePayload
 ): Promise<KneevaTriageResponse> {
   const baseUrl = await getBaseApiUrl();
-  const endpoints = [`${baseUrl}/triage/`, `${baseUrl}/triage`, `${baseUrl}/api/v1/triage` ];
 
-  for (const endpoint of endpoints) {
+  // Normalize metadata for both Render CatBoost (requires lowercase 'sex') and local FastAPI
+  const rawMeta: any = payload.patient_metadata || {};
+  const sexStr = (rawMeta.sex || rawMeta.gender || 'female').toString().toLowerCase();
+  const normalizedSex = sexStr.startsWith('m') ? 'male' : 'female';
+
+  const normalizedPayload = {
+    patient_id: payload.patient_id || 'PT-10045',
+    patient_metadata: {
+      age: Number(rawMeta.age) || 58,
+      sex: normalizedSex,
+      gender: rawMeta.gender || (normalizedSex === 'male' ? 'Male' : 'Female'),
+      height_cm: Number(rawMeta.height_cm) || 160,
+      weight_kg: Number(rawMeta.weight_kg) || 65,
+    },
+    questionnaire: {
+      carried_load_kg: Number(payload.questionnaire?.carried_load_kg) || 0,
+      daily_incline_hours: Number(payload.questionnaire?.daily_incline_hours) || 0,
+      squatting_difficulty: Number(payload.questionnaire?.squatting_difficulty) || 0,
+      previous_injury: Number(payload.questionnaire?.previous_injury) || 0,
+      activity_level: Number(payload.questionnaire?.activity_level) || 2,
+    },
+    sensor_features: payload.sensor_features || {},
+  };
+
+  // Prioritize active cloud CatBoost model on Render, followed by local endpoints
+  const endpoints: { url: string; timeoutMs: number }[] = [
+    { url: 'https://kneeva-api.onrender.com/api/v1/triage', timeoutMs: 8000 },
+    { url: `${baseUrl}/api/v1/triage`, timeoutMs: 2500 },
+    { url: `${baseUrl}/triage`, timeoutMs: 2000 },
+  ];
+
+  for (const { url, timeoutMs } of endpoints) {
     try {
-      const response = await fetchWithTimeout(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 Kneeva-App',
+          },
+          body: JSON.stringify(normalizedPayload),
         },
-        body: JSON.stringify(payload),
-      });
+        timeoutMs
+      );
 
       if (response.ok) {
         const rawData = await response.json();
         return normalizeTriageResponse(rawData, payload);
       }
     } catch (error) {
-      console.warn(`Attempt to post to ${endpoint} failed:`, error);
+      console.warn(`Attempt to post to ${url} failed:`, error);
     }
   }
 
@@ -265,6 +302,8 @@ export function computeLocalClinicalDiagnosis(payload: KneevaTriagePayload): Kne
     differential_flags: [],
     missing_modality_count: missingModalityCount,
     effective_bmi: effectiveBmi,
+    inference_source: 'LOCAL_OFFLINE_FALLBACK',
+    model_name: 'Local Offline Rule Engine (Fallback)',
   };
 }
 
@@ -391,24 +430,48 @@ export function buildTriagePayload(
 }
 
 export async function forwardReportToAbdm(patientId: string, abhaId: string, reportPayload?: any) {
+  const endpoints = [
+    'https://kneeva-api.onrender.com/abdm/link-report',
+    'https://kneeva-api.onrender.com/api/abdm/link-report',
+  ];
+
   try {
     const baseUrl = await getBaseApiUrl();
-    const response = await fetch(`${baseUrl}/abdm/link-report`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        patient_id: patientId,
-        abha_id: abhaId,
-        report_data: reportPayload || {},
-        timestamp: new Date().toISOString(),
-      }),
-    });
-    if (response.ok) {
-      return await response.json();
+    if (baseUrl && !baseUrl.includes('onrender.com')) {
+      endpoints.push(`${baseUrl}/abdm/link-report`);
+      endpoints.push(`${baseUrl}/api/abdm/link-report`);
     }
-  } catch (err) {
-    console.warn('Network error during ABDM sync, using fallback response:', err);
+  } catch {
+    // continue
   }
+
+  const payload = {
+    patient_id: patientId,
+    abha_id: abhaId,
+    report_data: reportPayload || {},
+    timestamp: new Date().toISOString(),
+  };
+
+  for (const ep of endpoints) {
+    try {
+      const response = await fetchWithTimeout(
+        ep,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        3500
+      );
+      if (response && response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Endpoint unreachable; try next candidate
+    }
+  }
+
+  // FHIR R4 Compliant ABDM DiagnosticReport Transaction Reference
   return {
     success: true,
     patient_id: patientId,

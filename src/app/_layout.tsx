@@ -41,6 +41,7 @@ export default function RootLayout() {
             <Stack.Screen name="report/[sessionId]" />
             <Stack.Screen name="kneeva/index" />
             <Stack.Screen name="kneeva/results" />
+            <Stack.Screen name="routine" />
           </Stack>
         </AuthProvider>
       </SettingsProvider>
